@@ -28,7 +28,7 @@ Data_Read= False
 Display_Original= False
 Blank_Image= False
 Display_Peephole= False
-Threshold= False
+Threshold= True
 LSB_Mode= False
 ReadVal= 10
 Dilate= 0
@@ -51,14 +51,17 @@ Data= []
 Inverted= False
 Bits= 0
 Rows= 0
+Filters= {
+	'Blue':(0xff,0x00,0x00),
+	'Green':(0x00,0xff,0x00),
+	'Red':(0x00,0x00,0xff),
+	}
 
 if len(sys.argv) > 1:
 	#Img= cv.LoadImage(sys.argv[1], iscolor=cv.CV_LOAD_IMAGE_GRAYSCALE)
 	#Img= cv.LoadImage(sys.argv[1], iscolor=cv.CV_LOAD_IMAGE_COLOR)
 	Img= cv.LoadImage(sys.argv[1])
-	width = Img.width
-	height = Img.height
-	print 'Image is %dx%d' % (width, height)
+	print 'Image is %dx%d' % (Img.width, Img.height)
 else:
 	print 'usage: %s <IMAGE> <BITS PER GROUP> <ROWS PER GROUP> [GRID FILE]' % sys.argv[0]
 	print
@@ -160,6 +163,7 @@ def on_mouse(event, mouse_x, mouse_y, flags, param):
 					for y in Grid_Points_y:
 						if mouse_y >= y - Radius / 2 and mouse_y <= y + Radius / 2:
 							value= toggle_data(x,y)
+							print Target[x,y]
 							#print 'value', value
 							if value == '0':
 								cv.Circle(Grid, (x,y), Radius, cv.Scalar(0xff,0x00,0x00), thickness= 2)
@@ -240,8 +244,11 @@ def on_mouse(event, mouse_x, mouse_y, flags, param):
 			Grid_Entries_y= 0
 		# draw a full set of rows
 		for x in range(Rows):
-			Grid_Entries_y += 1
 			draw_y=  int(mouse_y + x * Step_y)
+			# only draw up to the edge of the image
+			if draw_y > Img.height:
+				break
+			Grid_Entries_y += 1
 			Grid_Points_y.append(draw_y)
 			draw_line(mouse_x, draw_y, False, 'H', True)
 
@@ -420,6 +427,7 @@ while True:
 	show_image()
 	# keystroke processing
 	k = cv.WaitKey(0)
+	print k
 	if k > 66000:
 		continue
 	if k < 256:
@@ -441,11 +449,16 @@ while True:
 		Edit_y += 1
 		read_data()
 	if k == 65363 and Edit_x != False:
-		# right arrow
+		# right arrow - edit entrie column group
 		print 'editing column', Edit_x
 		sx= Edit_x - (Edit_x % Bits)
 		for x in range(sx, sx + Bits):
 			Grid_Points_x[x] += 1
+		read_data()
+	if k == 65432 and Edit_x != False:
+		# right arrow on numpad - edit single column
+		print 'editing column', Edit_x
+		Grid_Points_x[Edit_x] += 1
 		read_data()
 	if k == 65361 and Edit_x != False:
 		# left arrow
@@ -453,6 +466,18 @@ while True:
 		sx= Edit_x - (Edit_x % Bits)
 		for x in range(sx, sx + Bits):
 			Grid_Points_x[x] -= 1
+		read_data()
+	if k == 65430 and Edit_x != False:
+		# left arrow on numpad - edit single column
+		print 'editing column', Edit_x
+		Grid_Points_x[Edit_x] -= 1
+		read_data()
+	if k == 65439 and Edit_y != False:
+		# delete
+		print 'deleting row', Edit_y
+		Grid_Points_y.remove(Edit_y)
+		Grid_Entries_y -= 1
+		Edit_y= False
 		read_data()
 	if k == chr(10):
 		# enter
@@ -534,6 +559,7 @@ while True:
 		print '  right-arrow to move entire column right'
 		print '  up-arrow to move entire row up'
 		print '  down-arrow to move entire row down'
+		print '  DEL to delete row'
 		print
 	if k == 'i':
 		Inverted= not Inverted
@@ -576,11 +602,11 @@ while True:
 			outfile.close()
 		gridout= open(basename + '.grid.%d' % Saveset, 'wb')
 		pickle.dump(Grid_Intersections, gridout)
-		print 'grid saved to %s', basename + '.grid.%d' % Saveset
+		print 'grid saved to %s' % (basename + '.grid.%d' % Saveset)
 		Saveset += 1
 	if k == 't':
 		Threshold= True
-		print 'threshold:', Threshold
+		print 'threshold:', Threshold, Filters
 	if k == '-':
 		if Threshold_Min >= 2:
 			Threshold_Min -= 1
