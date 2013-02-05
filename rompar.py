@@ -30,6 +30,7 @@ Blank_Image= False
 Display_Peephole= False
 Threshold= True
 LSB_Mode= False
+Display_HEX= False
 ReadVal= 10
 Dilate= 0
 Erode= 0
@@ -69,7 +70,7 @@ else:
 	print
 	exit()
 
-# buffers
+# image buffers
 Target = cv.CreateImage(cv.GetSize(Img), cv.IPL_DEPTH_8U, 3)
 Grid= cv.CreateImage(cv.GetSize(Img), cv.IPL_DEPTH_8U, 3)
 Mask= cv.CreateImage(cv.GetSize(Img), cv.IPL_DEPTH_8U, 3)
@@ -79,7 +80,11 @@ Display= cv.CreateImage(cv.GetSize(Img), cv.IPL_DEPTH_8U, 3)
 cv.Set(Grid, cv.Scalar(0,0,0))
 Blank= cv.CreateImage(cv.GetSize(Img), cv.IPL_DEPTH_8U, 3)
 cv.Set(Blank, cv.Scalar(0,0,0))
+Hex= cv.CreateImage(cv.GetSize(Img), cv.IPL_DEPTH_8U, 3)
+cv.Set(Hex, cv.Scalar(0,0,0))
 
+FontSize= 1.0
+Font= cv.InitFont(cv.CV_FONT_HERSHEY_SIMPLEX, hscale= FontSize, vscale= 1.0, shear=0, thickness=2, lineType=8)
 
 def get_pixel(x, y):
 	return Target[x,y][0]+Target[x,y][1]+Target[x,y][2]
@@ -261,11 +266,13 @@ def show_image():
 	global Display_Original
 	global Img
 	global Display
+	global Display_HEX
 
 	if Display_Original:
 		Display= cv.CloneImage(Img)	
 	else:
 		Display= cv.CloneImage(Target)
+
 	if Blank_Image:
 		Display= cv.CloneImage(Blank)	
 
@@ -274,6 +281,10 @@ def show_image():
 
 	if Display_Peephole:
 		cv.And(Display, Peephole, Display)
+
+	if Display_HEX:
+		show_data()
+		cv.Or(Display, Hex, Display)
 
 	cv.ShowImage("rompar %s" % sys.argv[1], Display)
 
@@ -355,13 +366,30 @@ def read_data():
 	Data_Read= True
 
 def show_data():
+	global Hex
+	global Display_HEX
+	global Grid_Points_x
+	global Grid_Points_y
+	global Font
+	global Data_Read
+	global Radius
+
+	if not Data_Read:
+		return
+
+	cv.Set(Hex, cv.Scalar(0,0,0))
 	print
 	dat= get_all_data()
 	for row in range(Grid_Entries_y):
 		out= ''
 		for column in range(Grid_Entries_x / Bits):
-			out += '%02X ' % ord(dat[column * Grid_Entries_y + row])
+			hexbyte= '%02X ' % ord(dat[column * Grid_Entries_y + row])
+			out += hexbyte
+			if Display_HEX:
+				cv.PutText(Hex, hexbyte, (Grid_Points_x[column * Bits], Grid_Points_y[row] + Radius / 2 + 1), Font, cv.Scalar(0xff,0xff,0xff))
 		print out
+		#if Display_HEX:
+		#	cv.PutText(Hex, "hello", (0, row), Font, cv.Scalar(0xff,0xff,0xff))
 	print
 
 def get_all_data():
@@ -506,6 +534,15 @@ while True:
 			Erode -= 1
 	if k == 'E':
 		Erode += 1
+	if k == 'f':
+		if FontSize > 0.1:
+			FontSize -= 0.1
+			Font= cv.InitFont(cv.CV_FONT_HERSHEY_SIMPLEX, hscale= FontSize, vscale= 1.0, shear=0, thickness=2, lineType=8)
+		print 'fontsize:', FontSize
+	if k == 'F':
+		FontSize += 0.1
+		Font= cv.InitFont(cv.CV_FONT_HERSHEY_SIMPLEX, hscale= FontSize, vscale= 1.0, shear=0, thickness=2, lineType=8)
+		print 'fontsize:', FontSize
 	if k == 'g':
 		Display_Grid= not Display_Grid
 		print 'display grid:', Display_Grid
@@ -517,6 +554,8 @@ while True:
 		print 'D : increase dilation'
 		print 'e : decrease erosion'
 		print 'E : increase erosion'
+		print 'f : decrease font size'
+		print 'F : increase font size'
 		print 'g : toggle grid display'
 		print 'h : print help'
 		print 'i : invert data 0/1'
@@ -590,7 +629,8 @@ while True:
 		redraw_grid()
 		Data_Read= False
 	if k == 's':
-		show_data()
+		Display_HEX= not Display_HEX
+		print 'show data:', Display_HEX
 	if k == 'S':
 		out= get_all_data()
 		columns= Grid_Entries_x / Bits
