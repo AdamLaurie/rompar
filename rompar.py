@@ -31,6 +31,7 @@ Display_Peephole= False
 Threshold= True
 LSB_Mode= False
 Display_HEX= False
+Search_HEX= None
 ReadVal= 10
 Dilate= 0
 Erode= 0
@@ -368,6 +369,7 @@ def read_data():
 def show_data():
 	global Hex
 	global Display_HEX
+	global Search_HEX
 	global Grid_Points_x
 	global Grid_Points_y
 	global Font
@@ -383,13 +385,15 @@ def show_data():
 	for row in range(Grid_Entries_y):
 		out= ''
 		for column in range(Grid_Entries_x / Bits):
-			hexbyte= '%02X ' % ord(dat[column * Grid_Entries_y + row])
+			thisbyte= ord(dat[column * Grid_Entries_y + row])
+			hexbyte= '%02X ' % thisbyte
 			out += hexbyte
 			if Display_HEX:
-				cv.PutText(Hex, hexbyte, (Grid_Points_x[column * Bits], Grid_Points_y[row] + Radius / 2 + 1), Font, cv.Scalar(0xff,0xff,0xff))
+				if Search_HEX and Search_HEX.count(thisbyte):
+					cv.PutText(Hex, hexbyte, (Grid_Points_x[column * Bits], Grid_Points_y[row] + Radius / 2 + 1), Font, cv.Scalar(0x00,0xff,0xff))
+				else:
+					cv.PutText(Hex, hexbyte, (Grid_Points_x[column * Bits], Grid_Points_y[row] + Radius / 2 + 1), Font, cv.Scalar(0xff,0xff,0xff))
 		print out
-		#if Display_HEX:
-		#	cv.PutText(Hex, "hello", (0, row), Font, cv.Scalar(0xff,0xff,0xff))
 	print
 
 def get_all_data():
@@ -567,11 +571,12 @@ while True:
 		print 'q : quit'
 		print 'r : read bits (end enter bit/grid editing mode)'
 		print 'R : reset bits (and exit bit/grid editing mode)'
-		print 's : show data values'
+		print 's : show data values (HEX)'
 		print 'S : save data and grid'
 		print 't : apply threshold filter'
 		print '+ : increase threshold filter minimum'
 		print '- : decrease threshold filter minimum'
+		print '? : search for HEX (highlight when HEX shown)' 
 		print 
 		print 'to create template:'
 		print
@@ -644,6 +649,8 @@ while True:
 		pickle.dump(Grid_Intersections, gridout)
 		print 'grid saved to %s' % (basename + '.grid.%d' % Saveset)
 		Saveset += 1
+	if k == 'q':
+		break
 	if k == 't':
 		Threshold= True
 		print 'threshold:', Threshold, Filters
@@ -658,5 +665,32 @@ while True:
 		print 'threshold filter %02x' % Threshold_Min
 		if Data_Read:
 			read_data()
-	if k == 'q':
-		break
+	if k == '?':
+		print 'Enter space delimeted HEX (in image window), e.g. 10 A1 EF: ',
+		sys.stdout.flush()
+		shx= ''
+		while 42:
+			c= cv.WaitKey(0)
+			# BS or DEL
+			if c == 65288 or c == 65535:
+				c= 0x08
+			if c > 255:
+				continue
+			if c == 0x0d or c == 0x0a:
+				print
+				break
+			if c == 0x08:
+				if not shx:
+					sys.stdout.write('\a')
+					sys.stdout.flush()
+					continue
+				sys.stdout.write('\b \b')
+				sys.stdout.flush()
+				shx= shx[:-1]
+				continue
+			c= chr(c)
+			sys.stdout.write(c)
+			sys.stdout.flush()
+			shx += c
+		Search_HEX= [int(h, 16) for h in shx.strip().split(' ')]
+		print 'searching for', shx.upper()
