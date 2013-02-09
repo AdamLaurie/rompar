@@ -30,7 +30,8 @@ Blank_Image= False
 Display_Peephole= False
 Threshold= True
 LSB_Mode= False
-Display_HEX= False
+Display_Data= False
+Display_Binary= False
 Search_HEX= None
 ReadVal= 10
 Dilate= 0
@@ -44,8 +45,8 @@ Grid_Entries_y= 0
 Grid_Intersections= []
 Grid_Start_x= 1
 Grid_Start_y= 1
-Edit_x= False
-Edit_y= False
+Edit_x= -1
+Edit_y= -1
 Step_x= 0
 Step_y= 0
 Radius= 0
@@ -85,10 +86,14 @@ Hex= cv.CreateImage(cv.GetSize(Img), cv.IPL_DEPTH_8U, 3)
 cv.Set(Hex, cv.Scalar(0,0,0))
 
 FontSize= 1.0
-Font= cv.InitFont(cv.CV_FONT_HERSHEY_SIMPLEX, hscale= FontSize, vscale= 1.0, shear=0, thickness=2, lineType=8)
+Font= cv.InitFont(cv.CV_FONT_HERSHEY_SIMPLEX, hscale= FontSize, vscale= 1.0, shear=0, thickness=1, lineType=8)
 
 def get_pixel(x, y):
 	return Target[x,y][0]+Target[x,y][1]+Target[x,y][2]
+
+# create binary printable string
+def to_bin(x):
+	return ''.join(x & (1 << i) and '1' or '0' for i in range(7,-1,-1)) 
 
 def redraw_grid():
 	global Grid
@@ -101,6 +106,8 @@ def redraw_grid():
 	cv.Set(Grid, cv.Scalar(0,0,0))
 	cv.Set(Peephole, cv.Scalar(0,0,0))
 	Grid_Intersections= []
+	Grid_Points_x.sort()
+	Grid_Points_y.sort()
 
 	for x in Grid_Points_x:
 		cv.Line(Grid, (x, 0), (x, Target.height), cv.Scalar(0xff,0x00,0x00),1)
@@ -180,14 +187,18 @@ def on_mouse(event, mouse_x, mouse_y, flags, param):
 			return
 
 		#if not Target[mouse_y, mouse_x]:
-		if not get_pixel(mouse_y, mouse_x):
+		if not flags == cv.CV_EVENT_FLAG_SHIFTKEY and not get_pixel(mouse_y, mouse_x):
 			print 'miss!'
 			return
 
 		# only draw a single line if this is the first one
 		if Grid_Entries_x == 0:
 			Grid_Entries_x += 1
-			mouse_x, mouse_y= draw_line(mouse_x, mouse_y, True, 'V', False)
+			# don't try to auto-center if shift key pressed
+			if flags == cv.CV_EVENT_FLAG_SHIFTKEY:
+				mouse_x, mouse_y= draw_line(mouse_x, mouse_y, False, 'V', False)
+			else:
+				mouse_x, mouse_y= draw_line(mouse_x, mouse_y, True, 'V', False)
 			Grid_Points_x.append(mouse_x)
 			return
 		# set up auto draw
@@ -231,13 +242,16 @@ def on_mouse(event, mouse_x, mouse_y, flags, param):
 						return
 			return
 
-		if not get_pixel(mouse_y, mouse_x):
+		if not flags == cv.CV_EVENT_FLAG_SHIFTKEY and not get_pixel(mouse_y, mouse_x):
 			print 'miss!'
 			return
 		# only draw a single line if this is the first one
 		if Grid_Entries_y == 0:
 			Grid_Entries_y += 1
-			mouse_x, mouse_y= draw_line(mouse_x, mouse_y, True, 'H', False)
+			if flags == cv.CV_EVENT_FLAG_SHIFTKEY:
+				mouse_x, mouse_y= draw_line(mouse_x, mouse_y, False, 'H', False)
+			else:
+				mouse_x, mouse_y= draw_line(mouse_x, mouse_y, True, 'H', False)
 			Grid_Points_y.append(mouse_y)
 			return
 		# set up auto draw
@@ -267,7 +281,7 @@ def show_image():
 	global Display_Original
 	global Img
 	global Display
-	global Display_HEX
+	global Display_Data
 
 	if Display_Original:
 		Display= cv.CloneImage(Img)	
@@ -283,7 +297,7 @@ def show_image():
 	if Display_Peephole:
 		cv.And(Display, Peephole, Display)
 
-	if Display_HEX:
+	if Display_Data:
 		show_data()
 		cv.Or(Display, Hex, Display)
 
@@ -344,7 +358,7 @@ def read_data():
 
 	redraw_grid()
 
-	# maximum, possible value if all pixels are set
+	# maximum possible value if all pixels are set
 	maxval= (Radius * Radius) * 255
 	print 'max:', maxval
 
@@ -368,7 +382,8 @@ def read_data():
 
 def show_data():
 	global Hex
-	global Display_HEX
+	global Display_Data
+	global Display_Binary
 	global Search_HEX
 	global Grid_Points_x
 	global Grid_Points_y
@@ -384,15 +399,23 @@ def show_data():
 	dat= get_all_data()
 	for row in range(Grid_Entries_y):
 		out= ''
+		outbin= ''
 		for column in range(Grid_Entries_x / Bits):
 			thisbyte= ord(dat[column * Grid_Entries_y + row])
 			hexbyte= '%02X ' % thisbyte
 			out += hexbyte
-			if Display_HEX:
+			outbin += to_bin(thisbyte) + ' '
+			if Display_Binary:
+				dispdata= to_bin(thisbyte)
+			else:
+				dispdata= hexbyte
+			if Display_Data:
 				if Search_HEX and Search_HEX.count(thisbyte):
-					cv.PutText(Hex, hexbyte, (Grid_Points_x[column * Bits], Grid_Points_y[row] + Radius / 2 + 1), Font, cv.Scalar(0x00,0xff,0xff))
+					cv.PutText(Hex, dispdata, (Grid_Points_x[column * Bits], Grid_Points_y[row] + Radius / 2 + 1), Font, cv.Scalar(0x00,0xff,0xff))
 				else:
-					cv.PutText(Hex, hexbyte, (Grid_Points_x[column * Bits], Grid_Points_y[row] + Radius / 2 + 1), Font, cv.Scalar(0xff,0xff,0xff))
+					cv.PutText(Hex, dispdata, (Grid_Points_x[column * Bits], Grid_Points_y[row] + Radius / 2 + 1), Font, cv.Scalar(0xff,0xff,0xff))
+		print outbin
+		print
 		print out
 	print
 
@@ -465,56 +488,63 @@ while True:
 	if k < 256:
 		k= chr(k)
 	else:
-		if k > 65506:
+		if k > 65506 and k != 65535:
 			k -= 65506
 			k= chr(k - 30)
-	if k == 65362 and Edit_y != False:
+	if k == 65288 and Edit_x >= 0:
+		# BS
+		print 'deleting column'
+		Grid_Points_x.remove(Grid_Points_x[Edit_x])
+		Edit_x= -1
+		Grid_Entries_x -= 1
+		read_data()
+	if k == 65362 and Edit_y >= 0:
 		# up arrow
 		print 'editing line', Edit_y
 		Grid_Points_y[Grid_Points_y.index(Edit_y)] -= 1
 		Edit_y -= 1
 		read_data()
-	if k == 65364 and Edit_y != False:
+	if k == 65364 and Edit_y >= 0:
 		# down arrow
 		print 'editing line', Edit_y
 		Grid_Points_y[Grid_Points_y.index(Edit_y)] += 1
 		Edit_y += 1
 		read_data()
-	if k == 65363 and Edit_x != False:
+	if k == 65363 and Edit_x >= 0:
 		# right arrow - edit entrie column group
 		print 'editing column', Edit_x
 		sx= Edit_x - (Edit_x % Bits)
 		for x in range(sx, sx + Bits):
 			Grid_Points_x[x] += 1
 		read_data()
-	if k == 65432 and Edit_x != False:
+	if k == 65432 and Edit_x >= 0:
 		# right arrow on numpad - edit single column
 		print 'editing column', Edit_x
 		Grid_Points_x[Edit_x] += 1
 		read_data()
-	if k == 65361 and Edit_x != False:
+	if k == 65361 and Edit_x >= 0:
 		# left arrow
 		print 'editing column', Edit_x
 		sx= Edit_x - (Edit_x % Bits)
 		for x in range(sx, sx + Bits):
 			Grid_Points_x[x] -= 1
 		read_data()
-	if k == 65430 and Edit_x != False:
+	if k == 65430 and Edit_x >= 0:
 		# left arrow on numpad - edit single column
 		print 'editing column', Edit_x
 		Grid_Points_x[Edit_x] -= 1
 		read_data()
-	if k == 65439 and Edit_y != False:
+	if (k == 65439 or k == 65535) and Edit_y >= 0:
 		# delete
 		print 'deleting row', Edit_y
 		Grid_Points_y.remove(Edit_y)
 		Grid_Entries_y -= 1
-		Edit_y= False
+		Edit_y= -1
 		read_data()
 	if k == chr(10):
 		# enter
-		Edit_x= False
-		Edit_y= False
+		Edit_x= -1
+		Edit_y= -1
 		print 'done editing'
 		read_data()
 	if k == 'a':
@@ -541,11 +571,11 @@ while True:
 	if k == 'f':
 		if FontSize > 0.1:
 			FontSize -= 0.1
-			Font= cv.InitFont(cv.CV_FONT_HERSHEY_SIMPLEX, hscale= FontSize, vscale= 1.0, shear=0, thickness=2, lineType=8)
+			Font= cv.InitFont(cv.CV_FONT_HERSHEY_SIMPLEX, hscale= FontSize, vscale= 1.0, shear=0, thickness=1, lineType=8)
 		print 'fontsize:', FontSize
 	if k == 'F':
 		FontSize += 0.1
-		Font= cv.InitFont(cv.CV_FONT_HERSHEY_SIMPLEX, hscale= FontSize, vscale= 1.0, shear=0, thickness=2, lineType=8)
+		Font= cv.InitFont(cv.CV_FONT_HERSHEY_SIMPLEX, hscale= FontSize, vscale= 1.0, shear=0, thickness=1, lineType=8)
 		print 'fontsize:', FontSize
 	if k == 'g':
 		Display_Grid= not Display_Grid
@@ -562,7 +592,8 @@ while True:
 		print 'F : increase font size'
 		print 'g : toggle grid display'
 		print 'h : print help'
-		print 'i : invert data 0/1'
+		print 'H : toggle binary / hex data display'
+		print 'i : toggle invert data 0/1'
 		print 'l : toggle LSB data order (default MSB)'
 		print 'm : decrease bit threshold divisor'
 		print 'M : decrease bit threshold divisor'
@@ -579,6 +610,8 @@ while True:
 		print '? : search for HEX (highlight when HEX shown)' 
 		print 
 		print 'to create template:'
+		print
+		print '  (note SHIFT will disable auto-centering)'
 		print
 		print '  columns:'
 		print
@@ -604,7 +637,11 @@ while True:
 		print '  up-arrow to move entire row up'
 		print '  down-arrow to move entire row down'
 		print '  DEL to delete row'
+		print '  BS to delete column'
 		print
+	if k == 'H':
+		Display_Binary= not Display_Binary
+		print 'display binary:', Display_Binary
 	if k == 'i':
 		Inverted= not Inverted
 		print 'inverted:', Inverted
@@ -634,9 +671,13 @@ while True:
 		redraw_grid()
 		Data_Read= False
 	if k == 's':
-		Display_HEX= not Display_HEX
-		print 'show data:', Display_HEX
+		Display_Data= not Display_Data
+		print 'show data:', Display_Data
 	if k == 'S':
+		print 'saving...'
+		if not Data_Read:
+			print 'no data to save!'
+			continue
 		out= get_all_data()
 		columns= Grid_Entries_x / Bits
 		chunk= len(out) / columns
@@ -672,7 +713,7 @@ while True:
 		while 42:
 			c= cv.WaitKey(0)
 			# BS or DEL
-			if c == 65288 or c == 65535:
+			if c == 65288 or c == 65535 or k == 65439:
 				c= 0x08
 			if c > 255:
 				continue
