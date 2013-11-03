@@ -682,7 +682,7 @@ while True:
 		columns= Grid_Entries_x / Bits
 		chunk= len(out) / columns
 		for x in range(columns):
-			outfile= open(basename + '.dat%d.set%d' % (x, Saveset),'w')
+			outfile= open(basename + '.dat%d.set%d' % (x, Saveset),'wb')
 			outfile.write(out[x*chunk:x*chunk+chunk])
 			print '%d bytes written to %s' % (chunk, basename + '.dat%d.set%d' % (x, Saveset))
 			outfile.close()
