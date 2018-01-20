@@ -485,12 +485,18 @@ while True:
 	print k
 	if k > 66000:
 		continue
-	if k < 256:
+	if k < 0:
+		break
+	elif k < 256:
 		k= chr(k)
 	else:
 		if k > 65506 and k != 65535:
 			k -= 65506
-			k= chr(k - 30)
+			k= k - 30
+			# modifier keys
+			if k < 0:
+				continue
+			k= chr(k)
 	if k == 65288 and Edit_x >= 0:
 		# BS
 		print 'deleting column'
