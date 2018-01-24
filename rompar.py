@@ -739,5 +739,9 @@ while True:
 			sys.stdout.write(c)
 			sys.stdout.flush()
 			shx += c
-		Search_HEX= [int(h, 16) for h in shx.strip().split(' ')]
+		try:
+			Search_HEX= [int(h, 16) for h in shx.strip().split(' ')]
+		except ValueError:
+			print 'Invalid hex value'
+			continue
 		print 'searching for', shx.upper()
