@@ -52,7 +52,7 @@ Step_y = 0
 Radius = 0
 Data = []
 Inverted = False
-Bits = 0
+Cols = 0
 Rows = 0
 Filters = {
     'Blue': (0xff, 0x00, 0x00),
@@ -66,7 +66,7 @@ if len(sys.argv) > 1:
     Img = cv.LoadImage(sys.argv[1])
     print 'Image is %dx%d' % (Img.width, Img.height)
 else:
-    print 'usage: %s <IMAGE> <BITS PER GROUP> <ROWS PER GROUP> [GRID FILE]' % sys.argv[
+    print 'usage: %s <IMAGE> <COLS PER GROUP> <ROWS PER GROUP> [GRID FILE]' % sys.argv[
         0]
     print
     print "  hit 'h' when image has focus to print help text"
@@ -141,7 +141,7 @@ def redraw_grid():
 
 
 basename = sys.argv[1][:sys.argv[1].find('.')]
-Bits = int(sys.argv[2])
+Cols = int(sys.argv[2])
 Rows = int(sys.argv[3])
 
 if len(sys.argv) == 5:
@@ -202,36 +202,35 @@ def on_mouse_left(event, mouse_x, mouse_y, flags, param):
         #if not Target[mouse_y, mouse_x]:
         if not flags == cv.CV_EVENT_FLAG_SHIFTKEY and not get_pixel(
                 mouse_y, mouse_x):
-            print 'miss!'
+            print 'autocenter: miss!'
             return
     
         # only draw a single line if this is the first one
         if Grid_Entries_x == 0:
             Grid_Entries_x += 1
             # don't try to auto-center if shift key pressed
-            if flags == cv.CV_EVENT_FLAG_SHIFTKEY:
-                mouse_x, mouse_y = draw_line(mouse_x, mouse_y, False, 'V',
-                                             False)
-            else:
-                mouse_x, mouse_y = draw_line(mouse_x, mouse_y, True, 'V',
-                                             False)
+            mouse_x, mouse_y = draw_line(mouse_x, mouse_y, flags != cv.CV_EVENT_FLAG_SHIFTKEY, 'V',
+                                         False)
             Grid_Points_x.append(mouse_x)
-            return
-        # set up auto draw
-        if Grid_Entries_x == 1:
-            # use a float to reduce rounding errors
-            Step_x = float(mouse_x - Grid_Points_x[0]) / (Bits - 1)
-            Radius = int(Step_x / 3)
-            # reset stored data as main loop will add all entries
-            mouse_x = Grid_Points_x[0]
-            Grid_Points_x = []
-            Grid_Entries_x = 0
-        # draw a full set of bits
-        for x in range(Bits):
-            Grid_Entries_x += 1
-            draw_x = int(mouse_x + x * Step_x)
-            Grid_Points_x.append(draw_x)
-            draw_line(draw_x, mouse_y, False, 'V', True)
+        else:
+            # set up auto draw
+            if len(Grid_Points_x) == 1:
+                # use a float to reduce rounding errors
+                if Cols > 1:
+                    Step_x = float(mouse_x - Grid_Points_x[0]) / (Cols - 1)
+                else:
+                    Step_x = 0.0
+                Radius = int(Step_x / 3)
+                # reset stored data as main loop will add all entries
+                mouse_x = Grid_Points_x[0]
+                Grid_Points_x = []
+                Grid_Entries_x = 0
+            # draw a full set of Cols
+            for x in range(Cols):
+                Grid_Entries_x += 1
+                draw_x = int(mouse_x + x * Step_x)
+                Grid_Points_x.append(draw_x)
+                draw_line(draw_x, mouse_y, False, 'V', True)
 
 def on_mouse_right(event, mouse_x, mouse_y, flags, param):
     global Grid_Points_y
@@ -256,7 +255,7 @@ def on_mouse_right(event, mouse_x, mouse_y, flags, param):
                         else:
                             xcount += 1
                     # highlight the bit group we're in
-                    sx = Edit_x - (Edit_x % Bits)
+                    sx = Edit_x - (Edit_x % Cols)
                     Edit_y = y
                     read_data()
                     show_image()
@@ -264,36 +263,36 @@ def on_mouse_right(event, mouse_x, mouse_y, flags, param):
     else:
         if not flags == cv.CV_EVENT_FLAG_SHIFTKEY and not get_pixel(
                 mouse_y, mouse_x):
-            print 'miss!'
+            print 'autocenter: miss!'
             return
         # only draw a single line if this is the first one
         if Grid_Entries_y == 0:
             Grid_Entries_y += 1
-            if flags == cv.CV_EVENT_FLAG_SHIFTKEY:
-                mouse_x, mouse_y = draw_line(mouse_x, mouse_y, False, 'H',
-                                             False)
-            else:
-                mouse_x, mouse_y = draw_line(mouse_x, mouse_y, True, 'H',
-                                             False)
+            mouse_x, mouse_y = draw_line(mouse_x, mouse_y, flags != cv.CV_EVENT_FLAG_SHIFTKEY, 'H',
+                                         False)
             Grid_Points_y.append(mouse_y)
-            return
-        # set up auto draw
-        if Grid_Entries_y == 1:
-            # use a float to reduce rounding errors
-            Step_y = float(mouse_y - Grid_Points_y[0]) / (Rows - 1)
-            # reset stored data as main loop will add all entries
-            mouse_y = Grid_Points_y[0]
-            Grid_Points_y = []
-            Grid_Entries_y = 0
-        # draw a full set of rows
-        for x in range(Rows):
-            draw_y = int(mouse_y + x * Step_y)
-            # only draw up to the edge of the image
-            if draw_y > Img.height:
-                break
-            Grid_Entries_y += 1
-            Grid_Points_y.append(draw_y)
-            draw_line(mouse_x, draw_y, False, 'H', True)
+        else:
+            # set up auto draw
+            if len(Grid_Points_y) == 1:
+                # use a float to reduce rounding errors
+                if Rows > 1:
+                    Step_y = float(mouse_y - Grid_Points_y[0]) / (Rows - 1)
+                else:
+                    Step_y = 0.0
+                # reset stored data as main loop will add all entries
+                mouse_y = Grid_Points_y[0]
+                Grid_Points_y = []
+                Grid_Entries_y = 0
+            print 'Draw %d rows' % Rows
+            # draw a full set of rows
+            for y in range(Rows):
+                draw_y = int(mouse_y + y * Step_y)
+                # only draw up to the edge of the image
+                if draw_y > Img.height:
+                    break
+                Grid_Entries_y += 1
+                Grid_Points_y.append(draw_y)
+                draw_line(mouse_x, draw_y, False, 'H', True)
 
 
 # mouse events
@@ -332,32 +331,31 @@ def show_image():
 
     cv.ShowImage("rompar %s" % sys.argv[1], Display)
 
+def auto_center(x, y):
+    x_min = x
+    while get_pixel(y, x_min) != 0.0:
+        x_min -= 1
+    x_max = x
+    while get_pixel(y, x_max) != 0.0:
+        x_max += 1
+    x = x_min + ((x_max - x_min) / 2)
+    y_min = y
+    while get_pixel(y_min, x) != 0.0:
+        y_min -= 1
+    y_max = y
+    while get_pixel(y_max, x) != 0.0:
+        y_max += 1
+    y = y_min + ((y_max - y_min) / 2)
+    return x, y
 
 # draw grid
 def draw_line(x, y, auto, direction, intersections):
-    global Grid
-    global Grid_Points_x
-    global Grid_Points_y
-    global Grid_Intersections
-
     # auto-center
     if auto:
-        x_min = x
-        while get_pixel(y, x_min) != 0.0:
-            x_min -= 1
-        x_max = x
-        while get_pixel(y, x_max) != 0.0:
-            x_max += 1
-        x = x_min + ((x_max - x_min) / 2)
-        y_min = y
-        while get_pixel(y_min, x) != 0.0:
-            y_min -= 1
-        y_max = y
-        while get_pixel(y_max, x) != 0.0:
-            y_max += 1
-        y = y_min + ((y_max - y_min) / 2)
+        x, y = auto_center(x, y)
 
     if direction == 'H':
+        print 'Draw H line', (0, y), (Target.width, y)
         cv.Line(Grid, (0, y), (Target.width, y), cv.Scalar(0xff, 0x00, 0x00),
                 1)
         for gridx in Grid_Points_x:
@@ -382,7 +380,7 @@ def draw_line(x, y, auto, direction, intersections):
             if intersections:
                 Grid_Intersections.append((x, gridy))
     show_image()
-    print 'points:', len(Grid_Intersections)
+    print 'draw_line grid intersections:', len(Grid_Intersections)
     return x, y
 
 
@@ -392,7 +390,7 @@ def read_data():
     global Grid_Entries_y
     global Radius
     global Target
-    global Bits
+    global Cols
     global Data_Read
     global Data
     global Inverted
@@ -414,9 +412,9 @@ def read_data():
                 Grid, (x, y), Radius, cv.Scalar(0x00, 0xff, 0x00), thickness=2)
             # highlight if we're in edit mode
             if y == Edit_y:
-                sx = Edit_x - (Edit_x % Bits)
+                sx = Edit_x - (Edit_x % Cols)
                 if Grid_Points_x.index(x) >= sx and Grid_Points_x.index(
-                        x) < sx + Bits:
+                        x) < sx + Cols:
                     cv.Circle(
                         Grid, (x, y),
                         Radius,
@@ -448,7 +446,7 @@ def show_data():
     for row in range(Grid_Entries_y):
         out = ''
         outbin = ''
-        for column in range(Grid_Entries_x / Bits):
+        for column in range(Grid_Entries_x / Cols):
             thisbyte = ord(dat[column * Grid_Entries_y + row])
             hexbyte = '%02X ' % thisbyte
             out += hexbyte
@@ -460,12 +458,12 @@ def show_data():
             if Display_Data:
                 if Search_HEX and Search_HEX.count(thisbyte):
                     cv.PutText(Hex, dispdata,
-                               (Grid_Points_x[column * Bits],
+                               (Grid_Points_x[column * Cols],
                                 Grid_Points_y[row] + Radius / 2 + 1), Font,
                                cv.Scalar(0x00, 0xff, 0xff))
                 else:
                     cv.PutText(Hex, dispdata,
-                               (Grid_Points_x[column * Bits],
+                               (Grid_Points_x[column * Cols],
                                 Grid_Points_y[row] + Radius / 2 + 1), Font,
                                cv.Scalar(0xff, 0xff, 0xff))
         print outbin
@@ -477,28 +475,28 @@ def show_data():
 def get_all_data():
     global Data
     global Grid_Intersections
-    global Bits
+    global Cols
     global Inverted
     global LSB_Mode
     global Grid_Entries_x
     global Grid_Entries_y
 
     out = ''
-    for column in range(Grid_Entries_x / Bits):
+    for column in range(Grid_Entries_x / Cols):
         for row in range(Grid_Entries_y):
             thischunk = ''
-            for x in range(Bits):
+            for x in range(Cols):
                 thisbit = Data[x * Grid_Entries_y + row +
-                               column * Bits * Grid_Entries_y]
+                               column * Cols * Grid_Entries_y]
                 if Inverted:
                     if thisbit == '0':
                         thisbit = '1'
                     else:
                         thisbit = '0'
                 thischunk += thisbit
-            for x in range(Bits / 8):
+            for x in range(Cols / 8):
                 thisbyte = thischunk[x * 8:x * 8 + 8]
-                # reverse bits if we want LSB
+                # reverse Cols if we want LSB
                 if LSB_Mode:
                     thisbyte = thisbyte[::-1]
                 out += chr(int(thisbyte, 2))
@@ -579,8 +577,8 @@ while True:
     if k == 65363 and Edit_x >= 0:
         # right arrow - edit entrie column group
         print 'editing column', Edit_x
-        sx = Edit_x - (Edit_x % Bits)
-        for x in range(sx, sx + Bits):
+        sx = Edit_x - (Edit_x % Cols)
+        for x in range(sx, sx + Cols):
             Grid_Points_x[x] += 1
         read_data()
     if k == 65432 and Edit_x >= 0:
@@ -591,8 +589,8 @@ while True:
     if k == 65361 and Edit_x >= 0:
         # left arrow
         print 'editing column', Edit_x
-        sx = Edit_x - (Edit_x % Bits)
-        for x in range(sx, sx + Bits):
+        sx = Edit_x - (Edit_x % Cols)
+        for x in range(sx, sx + Cols):
             Grid_Points_x[x] -= 1
         read_data()
     if k == 65430 and Edit_x >= 0:
@@ -658,7 +656,7 @@ while True:
     if k == 'g':
         Display_Grid = not Display_Grid
         print 'display grid:', Display_Grid
-    if k == 'h':
+    if k == 'h' or k == '?':
         print 'a : decrease radius of read aperture'
         print 'A : increase radius of read aperture'
         print 'b : blank image (to view template)'
@@ -678,14 +676,14 @@ while True:
         print 'o : toggle original image display'
         print 'p : toggle peephole view'
         print 'q : quit'
-        print 'r : read bits (end enter bit/grid editing mode)'
-        print 'R : reset bits (and exit bit/grid editing mode)'
+        print 'r : read Cols (end enter bit/grid editing mode)'
+        print 'R : reset Cols (and exit bit/grid editing mode)'
         print 's : show data values (HEX)'
         print 'S : save data and grid'
         print 't : apply threshold filter'
         print '+ : increase threshold filter minimum'
         print '- : decrease threshold filter minimum'
-        print '? : search for HEX (highlight when HEX shown)'
+        print '/ : search for HEX (highlight when HEX shown)'
         print
         print 'to create template:'
         print
@@ -757,7 +755,7 @@ while True:
             print 'no data to save!'
             continue
         out = get_all_data()
-        columns = Grid_Entries_x / Bits
+        columns = Grid_Entries_x / Cols
         chunk = len(out) / columns
         for x in range(columns):
             outfile = open(basename + '.dat%d.set%d' % (x, Saveset), 'wb')
@@ -785,7 +783,7 @@ while True:
         print 'threshold filter %02x' % Threshold_Min
         if Data_Read:
             read_data()
-    if k == '?':
+    if k == '/':
         print 'Enter space delimeted HEX (in image window), e.g. 10 A1 EF: ',
         sys.stdout.flush()
         shx = ''
