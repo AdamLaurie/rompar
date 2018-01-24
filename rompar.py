@@ -679,7 +679,7 @@ while True:
         print 'i : toggle invert data 0/1'
         print 'l : toggle LSB data order (default MSB)'
         print 'm : decrease bit threshold divisor'
-        print 'M : decrease bit threshold divisor'
+        print 'M : increase bit threshold divisor'
         print 'o : toggle original image display'
         print 'p : toggle peephole view'
         print 'q : quit'
