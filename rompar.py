@@ -167,58 +167,44 @@ if len(sys.argv) == 5:
 cv.NamedWindow("rompar %s" % sys.argv[1], 1)
 
 
-# mouse events
-def on_mouse(event, mouse_x, mouse_y, flags, param):
-    global Target
-    global Bits
+def on_mouse_left(event, mouse_x, mouse_y, flags, param):
     global Grid_Points_x
-    global Grid_Points_y
     global Grid_Entries_x
-    global Grid_Entries_y
-    global Grid_Start_x
-    global Grid_Start_y
     global Step_x
-    global Step_y
     global Radius
-    global Data_Read
     global Grid
-    global Edit_y
-    global Edit_x
 
-    # draw vertical grid lines
-    if event == cv.CV_EVENT_LBUTTONDOWN:
-        # are we editing data or grid?
-        if Data_Read:
-            # find nearest intersection and toggle its value
-            for x in Grid_Points_x:
-                if mouse_x >= x - Radius / 2 and mouse_x <= x + Radius / 2:
-                    for y in Grid_Points_y:
-                        if mouse_y >= y - Radius / 2 and mouse_y <= y + Radius / 2:
-                            value = toggle_data(x, y)
-                            print Target[x, y]
-                            #print 'value', value
-                            if value == '0':
-                                cv.Circle(
-                                    Grid, (x, y),
-                                    Radius,
-                                    cv.Scalar(0xff, 0x00, 0x00),
-                                    thickness=2)
-                            else:
-                                cv.Circle(
-                                    Grid, (x, y),
-                                    Radius,
-                                    cv.Scalar(0x00, 0xff, 0x00),
-                                    thickness=2)
+    # are we editing data or grid?
+    if Data_Read:
+        # find nearest intersection and toggle its value
+        for x in Grid_Points_x:
+            if mouse_x >= x - Radius / 2 and mouse_x <= x + Radius / 2:
+                for y in Grid_Points_y:
+                    if mouse_y >= y - Radius / 2 and mouse_y <= y + Radius / 2:
+                        value = toggle_data(x, y)
+                        print Target[x, y]
+                        #print 'value', value
+                        if value == '0':
+                            cv.Circle(
+                                Grid, (x, y),
+                                Radius,
+                                cv.Scalar(0xff, 0x00, 0x00),
+                                thickness=2)
+                        else:
+                            cv.Circle(
+                                Grid, (x, y),
+                                Radius,
+                                cv.Scalar(0x00, 0xff, 0x00),
+                                thickness=2)
 
-                            show_image()
-            return
-
+                        show_image()
+    else:
         #if not Target[mouse_y, mouse_x]:
         if not flags == cv.CV_EVENT_FLAG_SHIFTKEY and not get_pixel(
                 mouse_y, mouse_x):
             print 'miss!'
             return
-
+    
         # only draw a single line if this is the first one
         if Grid_Entries_x == 0:
             Grid_Entries_x += 1
@@ -247,31 +233,35 @@ def on_mouse(event, mouse_x, mouse_y, flags, param):
             Grid_Points_x.append(draw_x)
             draw_line(draw_x, mouse_y, False, 'V', True)
 
-    # draw horizontal grid lines
-    if event == cv.CV_EVENT_RBUTTONDOWN:
-        # are we editing data or grid?
-        if Data_Read:
-            # find row and select for editing
-            for x in Grid_Points_x:
-                for y in Grid_Points_y:
-                    if mouse_y >= y - Radius / 2 and mouse_y <= y + Radius / 2:
-                        #print 'value', get_data(x,y)
-                        # select the whole row
-                        xcount = 0
-                        for x in Grid_Points_x:
-                            if mouse_x >= x - Radius / 2 and mouse_x <= x + Radius / 2:
-                                Edit_x = xcount
-                                break
-                            else:
-                                xcount += 1
-                        # highlight the bit group we're in
-                        sx = Edit_x - (Edit_x % Bits)
-                        Edit_y = y
-                        read_data()
-                        show_image()
-                        return
-            return
+def on_mouse_right(event, mouse_x, mouse_y, flags, param):
+    global Grid_Points_y
+    global Grid_Entries_y
+    global Step_y
+    global Edit_y
+    global Edit_x
 
+    # are we editing data or grid?
+    if Data_Read:
+        # find row and select for editing
+        for x in Grid_Points_x:
+            for y in Grid_Points_y:
+                if mouse_y >= y - Radius / 2 and mouse_y <= y + Radius / 2:
+                    #print 'value', get_data(x,y)
+                    # select the whole row
+                    xcount = 0
+                    for x in Grid_Points_x:
+                        if mouse_x >= x - Radius / 2 and mouse_x <= x + Radius / 2:
+                            Edit_x = xcount
+                            break
+                        else:
+                            xcount += 1
+                    # highlight the bit group we're in
+                    sx = Edit_x - (Edit_x % Bits)
+                    Edit_y = y
+                    read_data()
+                    show_image()
+                    return
+    else:
         if not flags == cv.CV_EVENT_FLAG_SHIFTKEY and not get_pixel(
                 mouse_y, mouse_x):
             print 'miss!'
@@ -306,17 +296,21 @@ def on_mouse(event, mouse_x, mouse_y, flags, param):
             draw_line(mouse_x, draw_y, False, 'H', True)
 
 
+# mouse events
+def on_mouse(event, mouse_x, mouse_y, flags, param):
+    # draw vertical grid lines
+    if event == cv.CV_EVENT_LBUTTONDOWN:
+        on_mouse_left(event, mouse_x, mouse_y, flags, param)
+    # draw horizontal grid lines
+    elif event == cv.CV_EVENT_RBUTTONDOWN:
+        on_mouse_right(event, mouse_x, mouse_y, flags, param)
+
+
 cv.SetMouseCallback("rompar %s" % sys.argv[1], on_mouse, None)
 
 
 def show_image():
-    global Target
-    global Grid
-    global Display_Grid
-    global Display_Original
-    global Img
     global Display
-    global Display_Data
 
     if Display_Original:
         Display = cv.CloneImage(Img)
@@ -541,6 +535,7 @@ while True:
         cv.Erode(Target, Target, iterations=Erode)
         Erode = 0
     if Threshold:
+        print 'thresholding'
         cv.Threshold(Img, Target, Threshold_Min, 0xff, cv.CV_THRESH_BINARY)
         cv.And(Target, Mask, Target)
 
@@ -824,3 +819,5 @@ while True:
             print 'Invalid hex value'
             continue
         print 'searching for', shx.upper()
+
+print 'Exiting'
