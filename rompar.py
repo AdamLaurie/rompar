@@ -49,7 +49,7 @@ Edit_x = -1
 Edit_y = -1
 Step_x = 0
 Step_y = 0
-Radius = 0
+Radius = 10
 Data = []
 Inverted = False
 Cols = 0
@@ -206,20 +206,21 @@ def on_mouse_left(event, mouse_x, mouse_y, flags, param):
             return
     
         # only draw a single line if this is the first one
-        if Grid_Entries_x == 0:
+        if Grid_Entries_x == 0 or Cols == 1:
+            if flags != cv.CV_EVENT_FLAG_SHIFTKEY:
+                mouse_x, mouse_y = auto_center(x, y)
+
             Grid_Entries_x += 1
             # don't try to auto-center if shift key pressed
-            mouse_x, mouse_y = draw_line(mouse_x, mouse_y, flags != cv.CV_EVENT_FLAG_SHIFTKEY, 'V',
-                                         False)
+            draw_line(mouse_x, mouse_y, 'V', False)
             Grid_Points_x.append(mouse_x)
+            if Rows == 1:
+                draw_line(mouse_x, mouse_y, 'V', True)
         else:
             # set up auto draw
             if len(Grid_Points_x) == 1:
                 # use a float to reduce rounding errors
-                if Cols > 1:
-                    Step_x = float(mouse_x - Grid_Points_x[0]) / (Cols - 1)
-                else:
-                    Step_x = 0.0
+                Step_x = float(mouse_x - Grid_Points_x[0]) / (Cols - 1)
                 Radius = int(Step_x / 3)
                 # reset stored data as main loop will add all entries
                 mouse_x = Grid_Points_x[0]
@@ -230,7 +231,7 @@ def on_mouse_left(event, mouse_x, mouse_y, flags, param):
                 Grid_Entries_x += 1
                 draw_x = int(mouse_x + x * Step_x)
                 Grid_Points_x.append(draw_x)
-                draw_line(draw_x, mouse_y, False, 'V', True)
+                draw_line(draw_x, mouse_y, 'V', True)
 
 def on_mouse_right(event, mouse_x, mouse_y, flags, param):
     global Grid_Points_y
@@ -266,24 +267,24 @@ def on_mouse_right(event, mouse_x, mouse_y, flags, param):
             print 'autocenter: miss!'
             return
         # only draw a single line if this is the first one
-        if Grid_Entries_y == 0:
+        if Grid_Entries_y == 0 or Rows == 1:
+            if flags != cv.CV_EVENT_FLAG_SHIFTKEY:
+                mouse_x, mouse_y = auto_center(x, y)
+
             Grid_Entries_y += 1
-            mouse_x, mouse_y = draw_line(mouse_x, mouse_y, flags != cv.CV_EVENT_FLAG_SHIFTKEY, 'H',
-                                         False)
+            draw_line(mouse_x, mouse_y, 'H', False)
             Grid_Points_y.append(mouse_y)
+            if Rows == 1:
+                draw_line(mouse_x, mouse_y, 'H', True)
         else:
             # set up auto draw
             if len(Grid_Points_y) == 1:
                 # use a float to reduce rounding errors
-                if Rows > 1:
-                    Step_y = float(mouse_y - Grid_Points_y[0]) / (Rows - 1)
-                else:
-                    Step_y = 0.0
+                Step_y = float(mouse_y - Grid_Points_y[0]) / (Rows - 1)
                 # reset stored data as main loop will add all entries
                 mouse_y = Grid_Points_y[0]
                 Grid_Points_y = []
                 Grid_Entries_y = 0
-            print 'Draw %d rows' % Rows
             # draw a full set of rows
             for y in range(Rows):
                 draw_y = int(mouse_y + y * Step_y)
@@ -292,7 +293,7 @@ def on_mouse_right(event, mouse_x, mouse_y, flags, param):
                     break
                 Grid_Entries_y += 1
                 Grid_Points_y.append(draw_y)
-                draw_line(mouse_x, draw_y, False, 'H', True)
+                draw_line(mouse_x, draw_y, 'H', True)
 
 
 # mouse events
@@ -349,16 +350,15 @@ def auto_center(x, y):
     return x, y
 
 # draw grid
-def draw_line(x, y, auto, direction, intersections):
-    # auto-center
-    if auto:
-        x, y = auto_center(x, y)
+def draw_line(x, y, direction, intersections):
+    print 'draw_line', x, y, direction, intersections, len(Grid_Points_x), len(Grid_Points_y)
 
     if direction == 'H':
         print 'Draw H line', (0, y), (Target.width, y)
         cv.Line(Grid, (0, y), (Target.width, y), cv.Scalar(0xff, 0x00, 0x00),
                 1)
         for gridx in Grid_Points_x:
+            print '*****Grid_Points_x circle', (gridx, y), Radius
             cv.Circle(
                 Grid, (gridx, y),
                 Radius,
@@ -381,19 +381,11 @@ def draw_line(x, y, auto, direction, intersections):
                 Grid_Intersections.append((x, gridy))
     show_image()
     print 'draw_line grid intersections:', len(Grid_Intersections)
-    return x, y
 
 
 def read_data():
-    global Grid_Intersections
-    global Grid_Entries_x
-    global Grid_Entries_y
-    global Radius
-    global Target
-    global Cols
     global Data_Read
     global Data
-    global Inverted
 
     redraw_grid()
 
@@ -427,16 +419,6 @@ def read_data():
 
 
 def show_data():
-    global Hex
-    global Display_Data
-    global Display_Binary
-    global Search_HEX
-    global Grid_Points_x
-    global Grid_Points_y
-    global Font
-    global Data_Read
-    global Radius
-
     if not Data_Read:
         return
 
@@ -473,14 +455,6 @@ def show_data():
 
 
 def get_all_data():
-    global Data
-    global Grid_Intersections
-    global Cols
-    global Inverted
-    global LSB_Mode
-    global Grid_Entries_x
-    global Grid_Entries_y
-
     out = ''
     for column in range(Grid_Entries_x / Cols):
         for row in range(Grid_Entries_y):
@@ -505,16 +479,10 @@ def get_all_data():
 
 # call with exact values for intersection
 def get_data(x, y):
-    global Data
-    global Grid_Intersections
-
     return Data[Grid_Intersections.index((x, y))]
 
 
 def toggle_data(x, y):
-    global Data
-    global Grid_Intersections
-
     if Data[Grid_Intersections.index((x, y))] == '0':
         Data[Grid_Intersections.index((x, y))] = '1'
     else:
