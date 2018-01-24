@@ -49,7 +49,8 @@ Edit_x = -1
 Edit_y = -1
 Step_x = 0
 Step_y = 0
-Radius = 10
+default_radius = None
+Radius = 0
 Data = []
 Inverted = False
 Cols = 0
@@ -59,42 +60,6 @@ Filters = {
     'Green': (0x00, 0xff, 0x00),
     'Red': (0x00, 0x00, 0xff),
 }
-
-if len(sys.argv) > 1:
-    #Img= cv.LoadImage(sys.argv[1], iscolor=cv.CV_LOAD_IMAGE_GRAYSCALE)
-    #Img= cv.LoadImage(sys.argv[1], iscolor=cv.CV_LOAD_IMAGE_COLOR)
-    Img = cv.LoadImage(sys.argv[1])
-    print 'Image is %dx%d' % (Img.width, Img.height)
-else:
-    print 'usage: %s <IMAGE> <COLS PER GROUP> <ROWS PER GROUP> [GRID FILE]' % sys.argv[
-        0]
-    print
-    print "  hit 'h' when image has focus to print help text"
-    print
-    exit()
-
-# image buffers
-Target = cv.CreateImage(cv.GetSize(Img), cv.IPL_DEPTH_8U, 3)
-Grid = cv.CreateImage(cv.GetSize(Img), cv.IPL_DEPTH_8U, 3)
-Mask = cv.CreateImage(cv.GetSize(Img), cv.IPL_DEPTH_8U, 3)
-Peephole = cv.CreateImage(cv.GetSize(Img), cv.IPL_DEPTH_8U, 3)
-cv.Set(Mask, cv.Scalar(0x00, 0x00, 0xff))
-Display = cv.CreateImage(cv.GetSize(Img), cv.IPL_DEPTH_8U, 3)
-cv.Set(Grid, cv.Scalar(0, 0, 0))
-Blank = cv.CreateImage(cv.GetSize(Img), cv.IPL_DEPTH_8U, 3)
-cv.Set(Blank, cv.Scalar(0, 0, 0))
-Hex = cv.CreateImage(cv.GetSize(Img), cv.IPL_DEPTH_8U, 3)
-cv.Set(Hex, cv.Scalar(0, 0, 0))
-
-FontSize = 1.0
-Font = cv.InitFont(
-    cv.CV_FONT_HERSHEY_SIMPLEX,
-    hscale=FontSize,
-    vscale=1.0,
-    shear=0,
-    thickness=1,
-    lineType=8)
-
 
 def get_pixel(x, y):
     return Target[x, y][0] + Target[x, y][1] + Target[x, y][2]
@@ -139,33 +104,19 @@ def redraw_grid():
             cv.Scalar(0xff, 0xff, 0xff),
             thickness=-1)
 
+def update_radius():
+    global Radius
 
-basename = sys.argv[1][:sys.argv[1].find('.')]
-Cols = int(sys.argv[2])
-Rows = int(sys.argv[3])
+    if Radius:
+        return
 
-if len(sys.argv) == 5:
-    gridfile = open(sys.argv[4], 'rb')
-    Grid_Intersections = pickle.load(gridfile)
-    gridfile.close()
-    for x, y in Grid_Intersections:
-        try:
-            Grid_Points_x.index(x)
-        except:
-            Grid_Points_x.append(x)
-            Grid_Entries_x += 1
-        try:
-            Grid_Points_y.index(y)
-        except:
-            Grid_Points_y.append(y)
-            Grid_Entries_y += 1
-    Step_x = Grid_Points_x[1] - Grid_Points_x[0]
-    Step_y = Grid_Points_y[1] - Grid_Points_y[0]
-    Radius = Step_x / 3
-    redraw_grid()
-
-cv.NamedWindow("rompar %s" % sys.argv[1], 1)
-
+    if default_radius:
+        Radius = default_radius
+    else:
+        if Step_x:
+            Radius = int(Step_x / 3)
+        elif Step_y:
+            Radius = int(Step_y / 3)
 
 def on_mouse_left(event, mouse_x, mouse_y, flags, param):
     global Grid_Points_x
@@ -221,11 +172,11 @@ def on_mouse_left(event, mouse_x, mouse_y, flags, param):
             if len(Grid_Points_x) == 1:
                 # use a float to reduce rounding errors
                 Step_x = float(mouse_x - Grid_Points_x[0]) / (Cols - 1)
-                Radius = int(Step_x / 3)
                 # reset stored data as main loop will add all entries
                 mouse_x = Grid_Points_x[0]
                 Grid_Points_x = []
                 Grid_Entries_x = 0
+                update_radius()
             # draw a full set of Cols
             for x in range(Cols):
                 Grid_Entries_x += 1
@@ -285,6 +236,7 @@ def on_mouse_right(event, mouse_x, mouse_y, flags, param):
                 mouse_y = Grid_Points_y[0]
                 Grid_Points_y = []
                 Grid_Entries_y = 0
+                update_radius()
             # draw a full set of rows
             for y in range(Rows):
                 draw_y = int(mouse_y + y * Step_y)
@@ -490,119 +442,206 @@ def toggle_data(x, y):
     return get_data(x, y)
 
 
-# main loop
-Target = cv.CloneImage(Img)
-while True:
-    # image processing
-    if Dilate:
-        cv.Dilate(Target, Target, iterations=Dilate)
-        Dilate = 0
-    if Erode:
-        cv.Erode(Target, Target, iterations=Erode)
-        Erode = 0
-    if Threshold:
-        print 'thresholding'
-        cv.Threshold(Img, Target, Threshold_Min, 0xff, cv.CV_THRESH_BINARY)
-        cv.And(Target, Mask, Target)
 
-    show_image()
-    # keystroke processing
-    k = cv.WaitKey(0)
-    print k
-    if k > 66000:
-        continue
-    if k < 0:
-        break
-    elif k < 256:
-        k = chr(k)
-    else:
-        if k > 65506 and k != 65535:
-            k -= 65506
-            k = k - 30
-            # modifier keys
-            if k < 0:
-                continue
-            k = chr(k)
-    if k == 65288 and Edit_x >= 0:
-        # BS
-        print 'deleting column'
-        Grid_Points_x.remove(Grid_Points_x[Edit_x])
-        Edit_x = -1
-        Grid_Entries_x -= 1
-        read_data()
-    if k == 65362 and Edit_y >= 0:
-        # up arrow
-        print 'editing line', Edit_y
-        Grid_Points_y[Grid_Points_y.index(Edit_y)] -= 1
-        Edit_y -= 1
-        read_data()
-    if k == 65364 and Edit_y >= 0:
-        # down arrow
-        print 'editing line', Edit_y
-        Grid_Points_y[Grid_Points_y.index(Edit_y)] += 1
-        Edit_y += 1
-        read_data()
-    if k == 65363 and Edit_x >= 0:
-        # right arrow - edit entrie column group
-        print 'editing column', Edit_x
-        sx = Edit_x - (Edit_x % Cols)
-        for x in range(sx, sx + Cols):
-            Grid_Points_x[x] += 1
-        read_data()
-    if k == 65432 and Edit_x >= 0:
-        # right arrow on numpad - edit single column
-        print 'editing column', Edit_x
-        Grid_Points_x[Edit_x] += 1
-        read_data()
-    if k == 65361 and Edit_x >= 0:
-        # left arrow
-        print 'editing column', Edit_x
-        sx = Edit_x - (Edit_x % Cols)
-        for x in range(sx, sx + Cols):
-            Grid_Points_x[x] -= 1
-        read_data()
-    if k == 65430 and Edit_x >= 0:
-        # left arrow on numpad - edit single column
-        print 'editing column', Edit_x
-        Grid_Points_x[Edit_x] -= 1
-        read_data()
-    if (k == 65439 or k == 65535) and Edit_y >= 0:
-        # delete
-        print 'deleting row', Edit_y
-        Grid_Points_y.remove(Edit_y)
-        Grid_Entries_y -= 1
-        Edit_y = -1
-        read_data()
-    if k == chr(10):
-        # enter
-        Edit_x = -1
-        Edit_y = -1
-        print 'done editing'
-        read_data()
-    if k == 'a':
-        if Radius:
-            Radius -= 1
-            read_data()
-        print 'radius:', Radius
-    if k == 'A':
-        Radius += 1
-        read_data()
-        print 'radius:', Radius
-    if k == 'b':
-        Blank_Image = not Blank_Image
-    if k == 'd':
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description='Extract mask ROM image')
+    parser.add_argument('--radius', type=int, help='Use given radius')
+    parser.add_argument('image', help='Input image')
+    parser.add_argument('cols_per_group', type=int, help='')
+    parser.add_argument('rows_per_group', type=int, help='')
+    parser.add_argument('grid_file', nargs='?', help='Load saved grid file')
+    args = parser.parse_args()
+
+    default_radius = args.radius
+    Radius = args.radius
+
+    #Img= cv.LoadImage(args.image, iscolor=cv.CV_LOAD_IMAGE_GRAYSCALE)
+    #Img= cv.LoadImage(args.image, iscolor=cv.CV_LOAD_IMAGE_COLOR)
+    Img = cv.LoadImage(args.image)
+    print 'Image is %dx%d' % (Img.width, Img.height)
+
+    basename = args.image[:args.image.find('.')]
+    Cols = args.cols_per_group
+    Rows = args.rows_per_group
+
+    # image buffers
+    Target = cv.CreateImage(cv.GetSize(Img), cv.IPL_DEPTH_8U, 3)
+    Grid = cv.CreateImage(cv.GetSize(Img), cv.IPL_DEPTH_8U, 3)
+    Mask = cv.CreateImage(cv.GetSize(Img), cv.IPL_DEPTH_8U, 3)
+    Peephole = cv.CreateImage(cv.GetSize(Img), cv.IPL_DEPTH_8U, 3)
+    cv.Set(Mask, cv.Scalar(0x00, 0x00, 0xff))
+    Display = cv.CreateImage(cv.GetSize(Img), cv.IPL_DEPTH_8U, 3)
+    cv.Set(Grid, cv.Scalar(0, 0, 0))
+    Blank = cv.CreateImage(cv.GetSize(Img), cv.IPL_DEPTH_8U, 3)
+    cv.Set(Blank, cv.Scalar(0, 0, 0))
+    Hex = cv.CreateImage(cv.GetSize(Img), cv.IPL_DEPTH_8U, 3)
+    cv.Set(Hex, cv.Scalar(0, 0, 0))
+
+    FontSize = 1.0
+    Font = cv.InitFont(
+        cv.CV_FONT_HERSHEY_SIMPLEX,
+        hscale=FontSize,
+        vscale=1.0,
+        shear=0,
+        thickness=1,
+        lineType=8)
+
+    if args.grid_file:
+        gridfile = open(args.grid_file, 'rb')
+        Grid_Intersections = pickle.load(gridfile)
+        gridfile.close()
+        for x, y in Grid_Intersections:
+            try:
+                Grid_Points_x.index(x)
+            except:
+                Grid_Points_x.append(x)
+                Grid_Entries_x += 1
+            try:
+                Grid_Points_y.index(y)
+            except:
+                Grid_Points_y.append(y)
+                Grid_Entries_y += 1
+        Step_x = 0.0
+        if len(Grid_Points_x) > 1:
+            Step_x = Grid_Points_x[1] - Grid_Points_x[0]
+        Step_y = 0.0
+        if len(Grid_Points_y) > 1:
+            Step_y = Grid_Points_y[1] - Grid_Points_y[0]
+        if not args.radius:
+            if Step_x:
+                Radius = Step_x / 3
+            else:
+                Radius = Step_y / 3
+        redraw_grid()
+
+    cv.NamedWindow("rompar %s" % args.image, 1)
+
+
+    # main loop
+    Target = cv.CloneImage(Img)
+    while True:
+        # image processing
         if Dilate:
-            Dilate -= 1
-    if k == 'D':
-        Dilate += 1
-    if k == 'e':
+            cv.Dilate(Target, Target, iterations=Dilate)
+            Dilate = 0
         if Erode:
-            Erode -= 1
-    if k == 'E':
-        Erode += 1
-    if k == 'f':
-        if FontSize > 0.1:
-            FontSize -= 0.1
+            cv.Erode(Target, Target, iterations=Erode)
+            Erode = 0
+        if Threshold:
+            print 'thresholding'
+            cv.Threshold(Img, Target, Threshold_Min, 0xff, cv.CV_THRESH_BINARY)
+            cv.And(Target, Mask, Target)
+    
+        show_image()
+        # keystroke processing
+        k = cv.WaitKey(0)
+        print k
+        if k > 66000:
+            continue
+        if k < 0:
+            break
+        elif k < 256:
+            k = chr(k)
+        else:
+            if k > 65506 and k != 65535:
+                k -= 65506
+                k = k - 30
+                # modifier keys
+                if k < 0:
+                    continue
+                k = chr(k)
+        if k == 65288 and Edit_x >= 0:
+            # BS
+            print 'deleting column'
+            Grid_Points_x.remove(Grid_Points_x[Edit_x])
+            Edit_x = -1
+            Grid_Entries_x -= 1
+            read_data()
+        if k == 65362 and Edit_y >= 0:
+            # up arrow
+            print 'editing line', Edit_y
+            Grid_Points_y[Grid_Points_y.index(Edit_y)] -= 1
+            Edit_y -= 1
+            read_data()
+        if k == 65364 and Edit_y >= 0:
+            # down arrow
+            print 'editing line', Edit_y
+            Grid_Points_y[Grid_Points_y.index(Edit_y)] += 1
+            Edit_y += 1
+            read_data()
+        if k == 65363 and Edit_x >= 0:
+            # right arrow - edit entrie column group
+            print 'editing column', Edit_x
+            sx = Edit_x - (Edit_x % Cols)
+            for x in range(sx, sx + Cols):
+                Grid_Points_x[x] += 1
+            read_data()
+        if k == 65432 and Edit_x >= 0:
+            # right arrow on numpad - edit single column
+            print 'editing column', Edit_x
+            Grid_Points_x[Edit_x] += 1
+            read_data()
+        if k == 65361 and Edit_x >= 0:
+            # left arrow
+            print 'editing column', Edit_x
+            sx = Edit_x - (Edit_x % Cols)
+            for x in range(sx, sx + Cols):
+                Grid_Points_x[x] -= 1
+            read_data()
+        if k == 65430 and Edit_x >= 0:
+            # left arrow on numpad - edit single column
+            print 'editing column', Edit_x
+            Grid_Points_x[Edit_x] -= 1
+            read_data()
+        if (k == 65439 or k == 65535) and Edit_y >= 0:
+            # delete
+            print 'deleting row', Edit_y
+            Grid_Points_y.remove(Edit_y)
+            Grid_Entries_y -= 1
+            Edit_y = -1
+            read_data()
+        if k == chr(10):
+            # enter
+            Edit_x = -1
+            Edit_y = -1
+            print 'done editing'
+            read_data()
+        if k == 'a':
+            if Radius:
+                Radius -= 1
+                read_data()
+            print 'radius:', Radius
+        if k == 'A':
+            Radius += 1
+            read_data()
+            print 'radius:', Radius
+        if k == 'b':
+            Blank_Image = not Blank_Image
+        if k == 'd':
+            if Dilate:
+                Dilate -= 1
+        if k == 'D':
+            Dilate += 1
+        if k == 'e':
+            if Erode:
+                Erode -= 1
+        if k == 'E':
+            Erode += 1
+        if k == 'f':
+            if FontSize > 0.1:
+                FontSize -= 0.1
+                Font = cv.InitFont(
+                    cv.CV_FONT_HERSHEY_SIMPLEX,
+                    hscale=FontSize,
+                    vscale=1.0,
+                    shear=0,
+                    thickness=1,
+                    lineType=8)
+            print 'fontsize:', FontSize
+        if k == 'F':
+            FontSize += 0.1
             Font = cv.InitFont(
                 cv.CV_FONT_HERSHEY_SIMPLEX,
                 hscale=FontSize,
@@ -610,191 +649,181 @@ while True:
                 shear=0,
                 thickness=1,
                 lineType=8)
-        print 'fontsize:', FontSize
-    if k == 'F':
-        FontSize += 0.1
-        Font = cv.InitFont(
-            cv.CV_FONT_HERSHEY_SIMPLEX,
-            hscale=FontSize,
-            vscale=1.0,
-            shear=0,
-            thickness=1,
-            lineType=8)
-        print 'fontsize:', FontSize
-    if k == 'g':
-        Display_Grid = not Display_Grid
-        print 'display grid:', Display_Grid
-    if k == 'h' or k == '?':
-        print 'a : decrease radius of read aperture'
-        print 'A : increase radius of read aperture'
-        print 'b : blank image (to view template)'
-        print 'd : decrease dilation'
-        print 'D : increase dilation'
-        print 'e : decrease erosion'
-        print 'E : increase erosion'
-        print 'f : decrease font size'
-        print 'F : increase font size'
-        print 'g : toggle grid display'
-        print 'h : print help'
-        print 'H : toggle binary / hex data display'
-        print 'i : toggle invert data 0/1'
-        print 'l : toggle LSB data order (default MSB)'
-        print 'm : decrease bit threshold divisor'
-        print 'M : increase bit threshold divisor'
-        print 'o : toggle original image display'
-        print 'p : toggle peephole view'
-        print 'q : quit'
-        print 'r : read Cols (end enter bit/grid editing mode)'
-        print 'R : reset Cols (and exit bit/grid editing mode)'
-        print 's : show data values (HEX)'
-        print 'S : save data and grid'
-        print 't : apply threshold filter'
-        print '+ : increase threshold filter minimum'
-        print '- : decrease threshold filter minimum'
-        print '/ : search for HEX (highlight when HEX shown)'
-        print
-        print 'to create template:'
-        print
-        print '  (note SHIFT will disable auto-centering)'
-        print
-        print '  columns:'
-        print
-        print '    left click on first bit in any row of any group'
-        print '    left click on last bit in any row of that group'
-        print '    left click on first bit in any row of each subsequent group'
-        print
-        print '  rows:'
-        print
-        print '    right click on any bit in first row of any group'
-        print '    right click on any bit in last row of that group'
-        print '    right click on any bit in each subsequent group'
-        print
-        print 'data/grid manipulation (after read command issued):'
-        print
-        print '  left click on any bit to toggle value'
-        print '  right click to select row'
-        print
-        print '  in manipulation mode:'
-        print
-        print '  left-arrow to move entire column left'
-        print '  right-arrow to move entire column right'
-        print '  up-arrow to move entire row up'
-        print '  down-arrow to move entire row down'
-        print '  DEL to delete row'
-        print '  BS to delete column'
-        print
-    if k == 'H':
-        Display_Binary = not Display_Binary
-        print 'display binary:', Display_Binary
-    if k == 'i':
-        Inverted = not Inverted
-        print 'inverted:', Inverted
-    if k == 'l':
-        LSB_Mode = not LSB_Mode
-        print 'LSB data mode:', LSB_Mode
-    if k == 'm':
-        ReadVal -= 1
-        print 'readval:', ReadVal
-        if Data_Read:
+            print 'fontsize:', FontSize
+        if k == 'g':
+            Display_Grid = not Display_Grid
+            print 'display grid:', Display_Grid
+        if k == 'h' or k == '?':
+            print 'a : decrease radius of read aperture'
+            print 'A : increase radius of read aperture'
+            print 'b : blank image (to view template)'
+            print 'd : decrease dilation'
+            print 'D : increase dilation'
+            print 'e : decrease erosion'
+            print 'E : increase erosion'
+            print 'f : decrease font size'
+            print 'F : increase font size'
+            print 'g : toggle grid display'
+            print 'h : print help'
+            print 'H : toggle binary / hex data display'
+            print 'i : toggle invert data 0/1'
+            print 'l : toggle LSB data order (default MSB)'
+            print 'm : decrease bit threshold divisor'
+            print 'M : increase bit threshold divisor'
+            print 'o : toggle original image display'
+            print 'p : toggle peephole view'
+            print 'q : quit'
+            print 'r : read Cols (end enter bit/grid editing mode)'
+            print 'R : reset Cols (and exit bit/grid editing mode)'
+            print 's : show data values (HEX)'
+            print 'S : save data and grid'
+            print 't : apply threshold filter'
+            print '+ : increase threshold filter minimum'
+            print '- : decrease threshold filter minimum'
+            print '/ : search for HEX (highlight when HEX shown)'
+            print
+            print 'to create template:'
+            print
+            print '  (note SHIFT will disable auto-centering)'
+            print
+            print '  columns:'
+            print
+            print '    left click on first bit in any row of any group'
+            print '    left click on last bit in any row of that group'
+            print '    left click on first bit in any row of each subsequent group'
+            print
+            print '  rows:'
+            print
+            print '    right click on any bit in first row of any group'
+            print '    right click on any bit in last row of that group'
+            print '    right click on any bit in each subsequent group'
+            print
+            print 'data/grid manipulation (after read command issued):'
+            print
+            print '  left click on any bit to toggle value'
+            print '  right click to select row'
+            print
+            print '  in manipulation mode:'
+            print
+            print '  left-arrow to move entire column left'
+            print '  right-arrow to move entire column right'
+            print '  up-arrow to move entire row up'
+            print '  down-arrow to move entire row down'
+            print '  DEL to delete row'
+            print '  BS to delete column'
+            print
+        if k == 'H':
+            Display_Binary = not Display_Binary
+            print 'display binary:', Display_Binary
+        if k == 'i':
+            Inverted = not Inverted
+            print 'inverted:', Inverted
+        if k == 'l':
+            LSB_Mode = not LSB_Mode
+            print 'LSB data mode:', LSB_Mode
+        if k == 'm':
+            ReadVal -= 1
+            print 'readval:', ReadVal
+            if Data_Read:
+                read_data()
+        if k == 'M':
+            ReadVal += 1
+            print 'readval:', ReadVal
+            if Data_Read:
+                read_data()
+        if k == 'o':
+            Display_Original = not Display_Original
+            print 'display original:', Display_Original
+        if k == 'p':
+            Display_Peephole = not Display_Peephole
+            print 'display peephole:', Display_Peephole
+        if k == 'r':
+            print 'reading %d points...' % len(Grid_Intersections)
             read_data()
-    if k == 'M':
-        ReadVal += 1
-        print 'readval:', ReadVal
-        if Data_Read:
-            read_data()
-    if k == 'o':
-        Display_Original = not Display_Original
-        print 'display original:', Display_Original
-    if k == 'p':
-        Display_Peephole = not Display_Peephole
-        print 'display peephole:', Display_Peephole
-    if k == 'r':
-        print 'reading %d points...' % len(Grid_Intersections)
-        read_data()
-    if k == 'R':
-        redraw_grid()
-        Data_Read = False
-    if k == 's':
-        Display_Data = not Display_Data
-        print 'show data:', Display_Data
-    if k == 'S':
-        print 'saving...'
-        if not Data_Read:
-            print 'no data to save!'
-            continue
-
-        # Data packed into column based bytes
-        def save_dat():
-            out = get_all_data()
-            columns = Grid_Entries_x / Cols
-            chunk = len(out) / columns
-            for x in range(columns):
-                outfile = open(basename + '.dat%d.set%d' % (x, Saveset), 'wb')
-                outfile.write(out[x * chunk:x * chunk + chunk])
-                print '%d bytes written to %s' % (chunk,
-                                                  basename + '.dat%d.set%d' %
-                                                  (x, Saveset))
-                outfile.close()
-
-        # Want an as shown XY grid
-        def save_txt():
-            pass
-
-        def save_grid():
-            gridout = open(basename + '.grid.%d' % Saveset, 'wb')
-            pickle.dump(Grid_Intersections, gridout)
-            print 'grid saved to %s' % (basename + '.grid.%d' % Saveset)
-
-        save_dat()
-        save_grid()
-        Saveset += 1
-    if k == 'q':
-        break
-    if k == 't':
-        Threshold = True
-        print 'threshold:', Threshold, Filters
-    if k == '-':
-        Threshold_Min = max(Threshold_Min - 1, 0x01)
-        print 'threshold filter %02x' % Threshold_Min
-        if Data_Read:
-            read_data()
-    if k == '+':
-        Threshold_Min = min(Threshold_Min + 1, 0xFF)
-        print 'threshold filter %02x' % Threshold_Min
-        if Data_Read:
-            read_data()
-    if k == '/':
-        print 'Enter space delimeted HEX (in image window), e.g. 10 A1 EF: ',
-        sys.stdout.flush()
-        shx = ''
-        while 42:
-            c = cv.WaitKey(0)
-            # BS or DEL
-            if c == 65288 or c == 65535 or k == 65439:
-                c = 0x08
-            if c > 255:
+        if k == 'R':
+            redraw_grid()
+            Data_Read = False
+        if k == 's':
+            Display_Data = not Display_Data
+            print 'show data:', Display_Data
+        if k == 'S':
+            print 'saving...'
+            if not Data_Read:
+                print 'no data to save!'
                 continue
-            if c == 0x0d or c == 0x0a:
-                print
-                break
-            if c == 0x08:
-                if not shx:
-                    sys.stdout.write('\a')
-                    sys.stdout.flush()
-                    continue
-                sys.stdout.write('\b \b')
-                sys.stdout.flush()
-                shx = shx[:-1]
-                continue
-            c = chr(c)
-            sys.stdout.write(c)
+    
+            # Data packed into column based bytes
+            def save_dat():
+                out = get_all_data()
+                columns = Grid_Entries_x / Cols
+                chunk = len(out) / columns
+                for x in range(columns):
+                    outfile = open(basename + '.dat%d.set%d' % (x, Saveset), 'wb')
+                    outfile.write(out[x * chunk:x * chunk + chunk])
+                    print '%d bytes written to %s' % (chunk,
+                                                      basename + '.dat%d.set%d' %
+                                                      (x, Saveset))
+                    outfile.close()
+    
+            # Want an as shown XY grid
+            def save_txt():
+                pass
+    
+            def save_grid():
+                gridout = open(basename + '.grid.%d' % Saveset, 'wb')
+                pickle.dump(Grid_Intersections, gridout)
+                print 'grid saved to %s' % (basename + '.grid.%d' % Saveset)
+    
+            save_dat()
+            save_grid()
+            Saveset += 1
+        if k == 'q':
+            break
+        if k == 't':
+            Threshold = True
+            print 'threshold:', Threshold, Filters
+        if k == '-':
+            Threshold_Min = max(Threshold_Min - 1, 0x01)
+            print 'threshold filter %02x' % Threshold_Min
+            if Data_Read:
+                read_data()
+        if k == '+':
+            Threshold_Min = min(Threshold_Min + 1, 0xFF)
+            print 'threshold filter %02x' % Threshold_Min
+            if Data_Read:
+                read_data()
+        if k == '/':
+            print 'Enter space delimeted HEX (in image window), e.g. 10 A1 EF: ',
             sys.stdout.flush()
-            shx += c
-        try:
-            Search_HEX = [int(h, 16) for h in shx.strip().split(' ')]
-        except ValueError:
-            print 'Invalid hex value'
-            continue
-        print 'searching for', shx.upper()
-
-print 'Exiting'
+            shx = ''
+            while 42:
+                c = cv.WaitKey(0)
+                # BS or DEL
+                if c == 65288 or c == 65535 or k == 65439:
+                    c = 0x08
+                if c > 255:
+                    continue
+                if c == 0x0d or c == 0x0a:
+                    print
+                    break
+                if c == 0x08:
+                    if not shx:
+                        sys.stdout.write('\a')
+                        sys.stdout.flush()
+                        continue
+                    sys.stdout.write('\b \b')
+                    sys.stdout.flush()
+                    shx = shx[:-1]
+                    continue
+                c = chr(c)
+                sys.stdout.write(c)
+                sys.stdout.flush()
+                shx += c
+            try:
+                Search_HEX = [int(h, 16) for h in shx.strip().split(' ')]
+            except ValueError:
+                print 'Invalid hex value'
+                continue
+            print 'searching for', shx.upper()
+    
+    print 'Exiting'
