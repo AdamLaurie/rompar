@@ -208,7 +208,7 @@ def on_mouse_left(event, mouse_x, mouse_y, flags, param):
         # only draw a single line if this is the first one
         if Grid_Entries_x == 0 or Cols == 1:
             if flags != cv.CV_EVENT_FLAG_SHIFTKEY:
-                mouse_x, mouse_y = auto_center(x, y)
+                mouse_x, mouse_y = auto_center(mouse_x, mouse_y)
 
             Grid_Entries_x += 1
             # don't try to auto-center if shift key pressed
@@ -269,7 +269,7 @@ def on_mouse_right(event, mouse_x, mouse_y, flags, param):
         # only draw a single line if this is the first one
         if Grid_Entries_y == 0 or Rows == 1:
             if flags != cv.CV_EVENT_FLAG_SHIFTKEY:
-                mouse_x, mouse_y = auto_center(x, y)
+                mouse_x, mouse_y = auto_center(mouse_x, mouse_y)
 
             Grid_Entries_y += 1
             draw_line(mouse_x, mouse_y, 'H', False)
@@ -722,19 +722,31 @@ while True:
         if not Data_Read:
             print 'no data to save!'
             continue
-        out = get_all_data()
-        columns = Grid_Entries_x / Cols
-        chunk = len(out) / columns
-        for x in range(columns):
-            outfile = open(basename + '.dat%d.set%d' % (x, Saveset), 'wb')
-            outfile.write(out[x * chunk:x * chunk + chunk])
-            print '%d bytes written to %s' % (chunk,
-                                              basename + '.dat%d.set%d' %
-                                              (x, Saveset))
-            outfile.close()
-        gridout = open(basename + '.grid.%d' % Saveset, 'wb')
-        pickle.dump(Grid_Intersections, gridout)
-        print 'grid saved to %s' % (basename + '.grid.%d' % Saveset)
+
+        # Data packed into column based bytes
+        def save_dat():
+            out = get_all_data()
+            columns = Grid_Entries_x / Cols
+            chunk = len(out) / columns
+            for x in range(columns):
+                outfile = open(basename + '.dat%d.set%d' % (x, Saveset), 'wb')
+                outfile.write(out[x * chunk:x * chunk + chunk])
+                print '%d bytes written to %s' % (chunk,
+                                                  basename + '.dat%d.set%d' %
+                                                  (x, Saveset))
+                outfile.close()
+
+        # Want an as shown XY grid
+        def save_txt():
+            pass
+
+        def save_grid():
+            gridout = open(basename + '.grid.%d' % Saveset, 'wb')
+            pickle.dump(Grid_Intersections, gridout)
+            print 'grid saved to %s' % (basename + '.grid.%d' % Saveset)
+
+        save_dat()
+        save_grid()
         Saveset += 1
     if k == 'q':
         break
