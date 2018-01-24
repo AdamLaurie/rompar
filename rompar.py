@@ -776,13 +776,12 @@ while True:
         Threshold = True
         print 'threshold:', Threshold, Filters
     if k == '-':
-        if Threshold_Min >= 2:
-            Threshold_Min -= 1
+        Threshold_Min = max(Threshold_Min - 1, 0x01)
         print 'threshold filter %02x' % Threshold_Min
         if Data_Read:
             read_data()
     if k == '+':
-        Threshold_Min += 1
+        Threshold_Min = min(Threshold_Min + 1, 0xFF)
         print 'threshold filter %02x' % Threshold_Min
         if Data_Read:
             read_data()
