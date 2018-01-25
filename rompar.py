@@ -37,9 +37,12 @@ class Rompar(object):
         self.display_data = False
         # Overlay binary data on image
         self.display_binary = False
-        self.thresh_div = 10
+        # Bit is 1 if sum of pixels in area > (max possible value / thresh_div)
+        # ie 10 => set if average value at least 1/10 max brightness  
+        # Feel this is sort of a weird way to do this
+        self.bit_thresh_div = 10
         # Pixel value >= to consider occupied
-        self.thresh_min = 0xae
+        self.pix_thresh_min = 0xae
 
         # Image processing options
         self.dilate = 0
@@ -63,7 +66,7 @@ class Rompar(object):
 
         # Processed data
         self.Data = []
-        self.Inverted = False
+        self.inverted = False
         self.Cols = 0
         self.Rows = 0
         self.Grid_Points_x = []
@@ -345,7 +348,7 @@ def read_data(self):
         for xx in range(x - (self.radius / 2), x + (self.radius / 2)):
             for yy in range(y - (self.radius / 2), y + (self.radius / 2)):
                 value += get_pixel(self, yy, xx)
-        if value > maxval / self.thresh_div:
+        if value > maxval / self.bit_thresh_div:
             cv.Circle(
                 self.Grid, (x, y), self.radius, cv.Scalar(0x00, 0xff, 0x00), thickness=2)
             # highlight if we're in edit mode
@@ -408,7 +411,7 @@ def get_all_data(self):
             for x in range(self.Cols):
                 thisbit = self.Data[x * self.Grid_Entries_y + row +
                                column * self.Cols * self.Grid_Entries_y]
-                if self.Inverted:
+                if self.inverted:
                     if thisbit == '0':
                         thisbit = '1'
                     else:
@@ -519,17 +522,17 @@ def cmd_help():
     print 'i    toggle invert data 0/1'
     print 'l    toggle LSB data order (default MSB)'
     print 'm/M  decrease/increase bit threshold divisor'
-    print 'o   toggle original image display'
-    print 'p   toggle peephole view'
-    print 'q   quit'
-    print 'r   read cols (end enter bit/grid editing mode)'
-    print 'R   reset cols (and exit bit/grid editing mode)'
-    print 's   show data values (HEX)'
-    print 'S   save data and grid'
-    print 't   apply threshold filter'
-    print '-/+ decrease/increase threshold filter minimum'
-    print '/   search for HEX (highlight when HEX shown)'
-    print '?   print help'
+    print 'o    toggle original image display'
+    print 'p    toggle peephole view'
+    print 'q    quit'
+    print 'r    read cols (end enter bit/grid editing mode)'
+    print 'R    reset cols (and exit bit/grid editing mode)'
+    print 's    show data values (HEX)'
+    print 'S    save data and grid'
+    print 't    apply threshold filter'
+    print '-/+  decrease/increase threshold filter minimum'
+    print '/    search for HEX (highlight when HEX shown)'
+    print '?    print help'
     print
 
 def cmd_help2():
@@ -567,13 +570,11 @@ def cmd_help2():
 def do_loop(self):
     # image processing
     if self.dilate:
-        cv.self.dilate(self.Target, self.Target, iterations=self.dilate)
-        self.dilate = 0
+        cv.Dilate(self.Target, self.Target, iterations=self.dilate)
     if self.erode:
-        cv.self.erode(self.Target, self.Target, iterations=self.erode)
-        self.erode = 0
+        cv.Erode(self.Target, self.Target, iterations=self.erode)
     if self.Threshold:
-        cv.Threshold(self.Img, self.Target, self.thresh_min, 0xff, cv.CV_THRESH_BINARY)
+        cv.Threshold(self.Img, self.Target, self.pix_thresh_min, 0xff, cv.CV_THRESH_BINARY)
         cv.And(self.Target, self.Mask, self.Target)
 
     show_image(self)
@@ -663,27 +664,31 @@ def do_loop(self):
         # enter
         self.Edit_x = -1
         self.Edit_y = -1
-        print 'done editing'
+        print 'Done editing'
         read_data(self)
     elif k == 'a':
         if self.radius:
             self.radius -= 1
             read_data(self)
-        print 'Radius:', self.radius
+        print 'Radius: %d' % self.radius
     elif k == 'A':
         self.radius += 1
         read_data(self)
-        print 'Radius:', self.radius
+        print 'Radius: %d' % self.radius
     elif k == 'b':
         self.display_blank_image = not self.display_blank_image
     elif k == 'd':
         self.dilate = max(self.dilate - 1, 0)
+        print 'Dilate: %d' % self.dilate
     elif k == 'D':
         self.dilate += 1
+        print 'Dilate: %d' % self.dilate
     elif k == 'e':
-        self.erode = max(self.erase - 1, 0)
+        self.erode = max(self.erode - 1, 0)
+        print 'Erode: %d' % self.erode
     elif k == 'E':
         self.erode += 1
+        print 'Erode: %d' % self.erode
     elif k == 'f':
         if self.FontSize > 0.1:
             self.FontSize -= 0.1
@@ -694,7 +699,7 @@ def do_loop(self):
                 shear=0,
                 thickness=1,
                 lineType=8)
-        print 'fontsize:', self.FontSize
+        print 'Font size: %d' % self.FontSize
     elif k == 'F':
         self.FontSize += 0.1
         self.Font = cv.InitFont(
@@ -704,29 +709,29 @@ def do_loop(self):
             shear=0,
             thickness=1,
             lineType=8)
-        print 'fontsize:', self.FontSize
+        print 'Font size: %d' % self.FontSize
     elif k == 'g':
         self.display_grid = not self.display_grid
-        print 'display grid:', self.display_grid
+        print 'Display grid:', self.display_grid
     elif k == 'h' or k == '?':
         cmd_help()
     elif k == 'H':
         self.display_binary = not self.display_binary
-        print 'display binary:', self.display_binary
+        print 'Display binary:', self.display_binary
     elif k == 'i':
-        self.Inverted = not self.Inverted
-        print 'Inverted:', self.Inverted
+        self.inverted = not self.inverted
+        print 'Inverted:', self.inverted
     elif k == 'l':
         self.LSB_Mode = not self.LSB_Mode
         print 'LSB self.Data mode:', self.LSB_Mode
     elif k == 'm':
-        self.thresh_div -= 1
-        print 'thresh_div:', self.thresh_div
+        self.bit_thresh_div -= 1
+        print 'thresh_div:', self.bit_thresh_div
         if self.data_read:
             read_data(self)
     elif k == 'M':
-        self.thresh_div += 1
-        print 'thresh_div:', self.thresh_div
+        self.bit_thresh_div += 1
+        print 'thresh_div:', self.bit_thresh_div
         if self.data_read:
             read_data(self)
     elif k == 'o':
@@ -753,26 +758,19 @@ def do_loop(self):
         self.Threshold = True
         print 'Threshold:', self.Threshold
     elif k == '-':
-        self.thresh_min = max(self.thresh_min - 1, 0x01)
-        print 'Threshold filter %02x' % self.thresh_min
+        self.pix_thresh_min = max(self.pix_thresh_min - 1, 0x01)
+        print 'Threshold filter %02x' % self.pix_thresh_min
         if self.data_read:
             read_data(self)
     elif k == '+':
-        self.thresh_min = min(self.thresh_min + 1, 0xFF)
-        print 'Threshold filter %02x' % self.thresh_min
+        self.pix_thresh_min = min(self.pix_thresh_min + 1, 0xFF)
+        print 'Threshold filter %02x' % self.pix_thresh_min
         if self.data_read:
             read_data(self)
     elif k == '/':
         cmd_find(self, k)
 
-def run(image_fn, cols_per_group, rows_per_group,
-        grid_file=None, radius=None):
-    self = Rompar()
-    self.Cols = cols_per_group
-    self.Rows = rows_per_group
-    if radius:
-        self.default_radius = radius
-        self.radius = radius
+def run(self, image_fn, grid_file):
 
     #self.Img= cv.LoadImage(image_fn, iscolor=cv.CV_LOAD_IMAGE_GRAYSCALE)
     #self.Img= cv.LoadImage(image_fn, iscolor=cv.CV_LOAD_IMAGE_COLOR)
@@ -824,7 +822,7 @@ def run(image_fn, cols_per_group, rows_per_group,
         self.Step_y = 0.0
         if len(self.Grid_Points_y) > 1:
             self.Step_y = self.Grid_Points_y[1] - self.Grid_Points_y[0]
-        if not radius:
+        if not self.default_radius:
             if self.Step_x:
                 self.radius = self.Step_x / 3
             else:
@@ -849,11 +847,25 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description='Extract mask ROM image')
-    parser.add_argument('--radius', type=int, help='Use given radius')
+    parser.add_argument('--radius', type=int, help='Use given radius for display, bounded square for detection')
+    parser.add_argument('--bit-thresh-div', type=int, help='Bit set area threshold divisor')
+    # Only care about min
+    parser.add_argument('--pix-thresh', type=int, help='Pixel is set threshold minimum')
     parser.add_argument('image', help='Input image')
     parser.add_argument('cols_per_group', type=int, help='')
     parser.add_argument('rows_per_group', type=int, help='')
     parser.add_argument('grid_file', nargs='?', help='Load saved grid file')
     args = parser.parse_args()
 
-    run(args.image, args.cols_per_group, args.rows_per_group, grid_file=args.grid_file, radius=args.radius)
+    self = Rompar()
+    self.Cols = args.cols_per_group
+    self.Rows = args.rows_per_group
+    if args.radius:
+        self.default_radius = args.radius
+        self.radius = args.radius
+    if args.bit_thresh_div:
+        self.bit_thresh_div = args.bit_thresh_div
+    if args.pix_thresh:
+        self.pix_thresh_min = args.pix_thresh
+
+    run(self, args.image, grid_file=args.grid_file)
