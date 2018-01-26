@@ -23,7 +23,7 @@ import sys
 import pickle
 import traceback
 
-class Rompar(object):
+class Config(object):
     def __init__(self):
         # Display options
         # Overlay bit position grid
@@ -44,7 +44,7 @@ class Rompar(object):
         self.bit_thresh_div = 10
         # Pixel value >= to consider occupied
         self.pix_thresh_min = 0xae
-
+    
         # Image processing options
         self.dilate = 0
         self.erode = 0
@@ -54,36 +54,47 @@ class Rompar(object):
         # User supplied radius to be used in lieu of auto calculated
         self.default_radius = None
         self.threshold = True
+    
+        self.LSB_Mode = False
+    
+        self.font_size = None
+
+class Rompar(object):
+    def __init__(self):
+        # Main state
+        # Have we attempted to decode bits?
+        self.data_read = False
+
         # Pixels between cols
         self.step_x = 0
         # Pixels between rows
         self.step_y = 0
+        # Number of rows/cols per bit grouping
+        self.group_cols = 0
+        self.group_rows = 0
 
-        self.LSB_Mode = False
         self.Search_HEX = None
         # Number of save commands issued
         # Used to create unique save file postfix per save
         self.saves = 0
+
+        # >= 0 when in edit mode
         self.Edit_x = -1
         self.Edit_y = -1
 
         # Processed data
         self.inverted = False
         self.Data = []
-        self.Cols = 0
-        self.Rows = 0
+        # Global
         self.grid_points_x = []
         self.grid_points_y = []
-        self.grid_entries_x = 0
-        self.grid_entries_y = 0
         self.grid_intersections = []
-        # Have we attempted to decode bits?
-        self.data_read = False
 
         # Misc
         # Process events while true
         self.running = True
 
+        # Display objects
         # Image buffers
         self.img_target = None
         self.img_grid = None
@@ -92,13 +103,14 @@ class Rompar(object):
         self.img_display = None
         self.img_blank = None
         self.img_hex = None
-    
-        self.font_size = None
+        # Font currently rendering
         self.font = None
-
-        # Enable more verbose
+    
+        # Be more verbose
         # Crash on exceptions
         self.debug = False
+
+        self.config = Config()
 
 def get_pixel(self, x, y):
     return self.img_target[x, y][0] + self.img_target[x, y][1] + self.img_target[x, y][2]
@@ -127,54 +139,55 @@ def redraw_grid(self):
                 1)
     for x, y in self.grid_intersections:
         cv.Circle(
-            self.img_grid, (x, y), self.radius, cv.Scalar(0x00, 0x00, 0x00), thickness=-1)
+            self.img_grid, (x, y), self.config.radius, cv.Scalar(0x00, 0x00, 0x00), thickness=-1)
         cv.Circle(
-            self.img_grid, (x, y), self.radius, cv.Scalar(0xff, 0x00, 0x00), thickness=1)
+            self.img_grid, (x, y), self.config.radius, cv.Scalar(0xff, 0x00, 0x00), thickness=1)
         cv.Circle(
             self.img_peephole, (x, y),
-            self.radius + 1,
+            self.config.radius + 1,
             cv.Scalar(0xff, 0xff, 0xff),
             thickness=-1)
 
 def update_radius(self):
-    if self.radius:
+    if self.config.radius:
         return
 
-    if self.default_radius:
-        self.radius = self.default_radius
+    if self.config.default_radius:
+        self.config.radius = self.config.default_radius
     else:
         if self.step_x:
-            self.radius = int(self.step_x / 3)
+            self.config.radius = int(self.step_x / 3)
         elif self.step_y:
-            self.radius = int(self.step_y / 3)
+            self.config.radius = int(self.step_y / 3)
 
 def on_mouse_left(event, mouse_x, mouse_y, flags, param):
     self = param
 
-    # are we editing self.Data or grid?
+    # Edit data
     if self.data_read:
         # find nearest intersection and toggle its value
         for x in self.grid_points_x:
-            if mouse_x >= x - self.radius / 2 and mouse_x <= x + self.radius / 2:
+            if mouse_x >= x - self.config.radius / 2 and mouse_x <= x + self.config.radius / 2:
                 for y in self.grid_points_y:
-                    if mouse_y >= y - self.radius / 2 and mouse_y <= y + self.radius / 2:
-                        value = toggle_data(x, y)
+                    if mouse_y >= y - self.config.radius / 2 and mouse_y <= y + self.config.radius / 2:
+                        value = toggle_data(self, x, y)
                         print self.img_target[x, y]
                         #print 'value', value
                         if value == '0':
                             cv.Circle(
                                 self.img_grid, (x, y),
-                                self.radius,
+                                self.config.radius,
                                 cv.Scalar(0xff, 0x00, 0x00),
                                 thickness=2)
                         else:
                             cv.Circle(
                                 self.img_grid, (x, y),
-                                self.radius,
+                                self.config.radius,
                                 cv.Scalar(0x00, 0xff, 0x00),
                                 thickness=2)
 
                         show_image(self)
+    # Edit grid
     else:
         #if not Target[mouse_y, mouse_x]:
         if not flags == cv.CV_EVENT_FLAG_SHIFTKEY and not get_pixel(self,
@@ -183,89 +196,84 @@ def on_mouse_left(event, mouse_x, mouse_y, flags, param):
             return
     
         # only draw a single line if this is the first one
-        if self.grid_entries_x == 0 or self.Cols == 1:
+        if len(self.grid_points_x) == 0 or self.group_cols == 1:
             if flags != cv.CV_EVENT_FLAG_SHIFTKEY:
                 mouse_x, mouse_y = auto_center(self, mouse_x, mouse_y)
 
-            self.grid_entries_x += 1
             # don't try to auto-center if shift key pressed
             draw_line(self, mouse_x, mouse_y, 'V', False)
             self.grid_points_x.append(mouse_x)
-            if self.Rows == 1:
+            if self.group_rows == 1:
                 draw_line(self, mouse_x, mouse_y, 'V', True)
         else:
             # set up auto draw
             if len(self.grid_points_x) == 1:
                 # use a float to reduce rounding errors
-                self.step_x = float(mouse_x - self.grid_points_x[0]) / (self.Cols - 1)
+                self.step_x = float(mouse_x - self.grid_points_x[0]) / (self.group_cols - 1)
                 # reset stored self.Data as main loop will add all entries
                 mouse_x = self.grid_points_x[0]
                 self.grid_points_x = []
-                self.grid_entries_x = 0
-                update_radius()
-            # draw a full set of self.Cols
-            for x in range(self.Cols):
-                self.grid_entries_x += 1
+                update_radius(self)
+            # draw a full set of self.group_cols
+            for x in range(self.group_cols):
                 draw_x = int(mouse_x + x * self.step_x)
                 self.grid_points_x.append(draw_x)
-                draw_line(draw_x, mouse_y, 'V', True)
+                draw_line(self, draw_x, mouse_y, 'V', True)
 
 def on_mouse_right(event, mouse_x, mouse_y, flags, param):
     self = param
 
-    # are we editing self.Data or grid?
+    # Edit data
     if self.data_read:
         # find row and select for editing
         for x in self.grid_points_x:
             for y in self.grid_points_y:
-                if mouse_y >= y - self.radius / 2 and mouse_y <= y + self.radius / 2:
+                if mouse_y >= y - self.config.radius / 2 and mouse_y <= y + self.config.radius / 2:
                     #print 'value', get_data(x,y)
                     # select the whole row
                     xcount = 0
                     for x in self.grid_points_x:
-                        if mouse_x >= x - self.radius / 2 and mouse_x <= x + self.radius / 2:
+                        if mouse_x >= x - self.config.radius / 2 and mouse_x <= x + self.config.radius / 2:
                             self.Edit_x = xcount
                             break
                         else:
                             xcount += 1
                     # highlight the bit group we're in
-                    sx = self.Edit_x - (self.Edit_x % self.Cols)
+                    sx = self.Edit_x - (self.Edit_x % self.group_cols)
                     self.Edit_y = y
                     read_data(self)
                     show_image(self)
                     return
+    # Edit grid
     else:
         if not flags == cv.CV_EVENT_FLAG_SHIFTKEY and not get_pixel(self,
                 mouse_y, mouse_x):
             print 'autocenter: miss!'
             return
         # only draw a single line if this is the first one
-        if self.grid_entries_y == 0 or self.Rows == 1:
+        if len(self.grid_points_y) == 0 or self.group_rows == 1:
             if flags != cv.CV_EVENT_FLAG_SHIFTKEY:
                 mouse_x, mouse_y = auto_center(self, mouse_x, mouse_y)
 
-            self.grid_entries_y += 1
             draw_line(self, mouse_x, mouse_y, 'H', False)
             self.grid_points_y.append(mouse_y)
-            if self.Rows == 1:
+            if self.group_rows == 1:
                 draw_line(self, mouse_x, mouse_y, 'H', True)
         else:
             # set up auto draw
             if len(self.grid_points_y) == 1:
                 # use a float to reduce rounding errors
-                self.step_y = float(mouse_y - self.grid_points_y[0]) / (self.Rows - 1)
+                self.step_y = float(mouse_y - self.grid_points_y[0]) / (self.group_rows - 1)
                 # reset stored self.Data as main loop will add all entries
                 mouse_y = self.grid_points_y[0]
                 self.grid_points_y = []
-                self.grid_entries_y = 0
-                update_radius()
-            # draw a full set of self.Rows
-            for y in range(self.Rows):
+                update_radius(self)
+            # draw a full set of self.group_rows
+            for y in range(self.group_rows):
                 draw_y = int(mouse_y + y * self.step_y)
                 # only draw up to the edge of the image
                 if draw_y > self.img_original.height:
                     break
-                self.grid_entries_y += 1
                 self.grid_points_y.append(draw_y)
                 draw_line(self, mouse_x, draw_y, 'H', True)
 
@@ -281,21 +289,21 @@ def on_mouse(event, mouse_x, mouse_y, flags, param):
 
 
 def show_image(self):
-    if self.img_display_original:
+    if self.config.img_display_original:
         self.img_display = cv.CloneImage(self.img_original)
     else:
         self.img_display = cv.CloneImage(self.img_target)
 
-    if self.img_display_blank_image:
+    if self.config.img_display_blank_image:
         self.img_display = cv.CloneImage(self.img_blank)
 
-    if self.img_display_grid:
+    if self.config.img_display_grid:
         cv.Or(self.img_display, self.img_grid, self.img_display)
 
-    if self.img_display_peephole:
+    if self.config.img_display_peephole:
         cv.And(self.img_display, self.img_peephole, self.img_display)
 
-    if self.img_display_data:
+    if self.config.img_display_data:
         show_data(self)
         cv.Or(self.img_display, self.img_hex, self.img_display)
 
@@ -327,13 +335,13 @@ def draw_line(self, x, y, direction, intersections):
         cv.Line(self.img_grid, (0, y), (self.img_target.width, y), cv.Scalar(0xff, 0x00, 0x00),
                 1)
         for gridx in self.grid_points_x:
-            print '*****self.grid_points_x circle', (gridx, y), self.radius
+            print '*****self.grid_points_x circle', (gridx, y), self.config.radius
             cv.Circle(
                 self.img_grid, (gridx, y),
-                self.radius,
+                self.config.radius,
                 cv.Scalar(0x00, 0x00, 0x00),
                 thickness=-1)
-            cv.Circle(self.img_grid, (gridx, y), self.radius, cv.Scalar(0xff, 0x00, 0x00))
+            cv.Circle(self.img_grid, (gridx, y), self.config.radius, cv.Scalar(0xff, 0x00, 0x00))
             if intersections:
                 self.grid_intersections.append((gridx, y))
     else:
@@ -342,10 +350,10 @@ def draw_line(self, x, y, direction, intersections):
         for gridy in self.grid_points_y:
             cv.Circle(
                 self.img_grid, (x, gridy),
-                self.radius,
+                self.config.radius,
                 cv.Scalar(0x00, 0x00, 0x00),
                 thickness=-1)
-            cv.Circle(self.img_grid, (x, gridy), self.radius, cv.Scalar(0xff, 0x00, 0x00))
+            cv.Circle(self.img_grid, (x, gridy), self.config.radius, cv.Scalar(0xff, 0x00, 0x00))
             if intersections:
                 self.grid_intersections.append((x, gridy))
     show_image(self)
@@ -356,7 +364,7 @@ def read_data(self):
     redraw_grid(self)
 
     # maximum possible value if all pixels are set
-    maxval = (self.radius * self.radius) * 255
+    maxval = (self.config.radius * self.config.radius) * 255
     print 'read_data max aperture value:', maxval
 
     self.Data = []
@@ -364,20 +372,20 @@ def read_data(self):
         value = 0
         # FIXME: misleading
         # This isn't a radius but rather a bounding box
-        for xx in range(x - (self.radius / 2), x + (self.radius / 2)):
-            for yy in range(y - (self.radius / 2), y + (self.radius / 2)):
+        for xx in range(x - (self.config.radius / 2), x + (self.config.radius / 2)):
+            for yy in range(y - (self.config.radius / 2), y + (self.config.radius / 2)):
                 value += get_pixel(self, yy, xx)
-        if value > maxval / self.bit_thresh_div:
+        if value > maxval / self.config.bit_thresh_div:
             cv.Circle(
-                self.img_grid, (x, y), self.radius, cv.Scalar(0x00, 0xff, 0x00), thickness=2)
+                self.img_grid, (x, y), self.config.radius, cv.Scalar(0x00, 0xff, 0x00), thickness=2)
             # highlight if we're in edit mode
             if y == self.Edit_y:
-                sx = self.Edit_x - (self.Edit_x % self.Cols)
+                sx = self.Edit_x - (self.Edit_x % self.group_cols)
                 if self.grid_points_x.index(x) >= sx and self.grid_points_x.index(
-                        x) < sx + self.Cols:
+                        x) < sx + self.group_cols:
                     cv.Circle(
                         self.img_grid, (x, y),
-                        self.radius,
+                        self.config.radius,
                         cv.Scalar(0xff, 0xff, 0xff),
                         thickness=2)
             self.Data.append('1')
@@ -393,28 +401,28 @@ def show_data(self):
     cv.Set(self.img_hex, cv.Scalar(0, 0, 0))
     print
     dat = get_all_data(self)
-    for row in range(self.grid_entries_y):
+    for row in range(len(self.grid_points_y)):
         out = ''
         outbin = ''
-        for column in range(self.grid_entries_x / self.Cols):
-            thisbyte = ord(dat[column * self.grid_entries_y + row])
+        for column in range(len(self.grid_points_x) / self.group_cols):
+            thisbyte = ord(dat[column * len(self.grid_points_y) + row])
             hexbyte = '%02X ' % thisbyte
             out += hexbyte
             outbin += to_bin(thisbyte) + ' '
-            if self.img_display_binary:
+            if self.config.img_display_binary:
                 disp_data = to_bin(thisbyte)
             else:
                 disp_data = hexbyte
-            if self.img_display_data:
+            if self.config.img_display_data:
                 if self.Search_HEX and self.Search_HEX.count(thisbyte):
                     cv.PutText(self.img_hex, disp_data,
-                               (self.grid_points_x[column * self.Cols],
-                                self.grid_points_y[row] + self.radius / 2 + 1), self.font,
+                               (self.grid_points_x[column * self.group_cols],
+                                self.grid_points_y[row] + self.config.radius / 2 + 1), self.font,
                                cv.Scalar(0x00, 0xff, 0xff))
                 else:
                     cv.PutText(self.img_hex, disp_data,
-                               (self.grid_points_x[column * self.Cols],
-                                self.grid_points_y[row] + self.radius / 2 + 1), self.font,
+                               (self.grid_points_x[column * self.group_cols],
+                                self.grid_points_y[row] + self.config.radius / 2 + 1), self.font,
                                cv.Scalar(0xff, 0xff, 0xff))
         print outbin
         print
@@ -424,22 +432,22 @@ def show_data(self):
 
 def get_all_data(self):
     out = ''
-    for column in range(self.grid_entries_x / self.Cols):
-        for row in range(self.grid_entries_y):
+    for column in range(len(self.grid_points_x) / self.group_cols):
+        for row in range(len(self.grid_points_y)):
             thischunk = ''
-            for x in range(self.Cols):
-                thisbit = self.Data[x * self.grid_entries_y + row +
-                               column * self.Cols * self.grid_entries_y]
+            for x in range(self.group_cols):
+                thisbit = self.Data[x * len(self.grid_points_y) + row +
+                               column * self.group_cols * len(self.grid_points_y)]
                 if self.inverted:
                     if thisbit == '0':
                         thisbit = '1'
                     else:
                         thisbit = '0'
                 thischunk += thisbit
-            for x in range(self.Cols / 8):
+            for x in range(self.group_cols / 8):
                 thisbyte = thischunk[x * 8:x * 8 + 8]
-                # reverse self.Cols if we want LSB
-                if self.LSB_Mode:
+                # reverse self.group_cols if we want LSB
+                if self.config.LSB_Mode:
                     thisbyte = thisbyte[::-1]
                 out += chr(int(thisbyte, 2))
     return out
@@ -450,11 +458,12 @@ def get_data(self, x, y):
     return self.Data[self.grid_intersections.index((x, y))]
 
 def toggle_data(self, x, y):
-    if self.Data[self.grid_intersections.index((x, y))] == '0':
-        self.Data[self.grid_intersections.index((x, y))] = '1'
+    i = self.grid_intersections.index((x, y))
+    if self.Data[i] == '0':
+        self.Data[i] = '1'
     else:
-        self.Data[self.grid_intersections.index((x, y))] = '0'
-    return get_data(self, x, y)
+        self.Data[i] = '0'
+    return self.Data[i]
 
 def cmd_find(self, k):
     print 'Enter space delimeted HEX (in image window), e.g. 10 A1 EF: ',
@@ -495,13 +504,39 @@ def cmd_find(self, k):
 
 def save_grid(self):
     gridout = open(self.basename + '.grid.%d' % self.saves, 'wb')
-    pickle.dump(self.grid_intersections, gridout)
+    pickle.dump((self.grid_intersections, self.config), gridout)
     print 'grid saved to %s' % (self.basename + '.grid.%d' % self.saves)
+
+def load_grid(self, grid_file):
+    with open(grid_file, 'rb') as gridfile:
+        self.grid_intersections, self.config = pickle.load(gridfile)
+
+    for x, y in self.grid_intersections:
+        try:
+            self.grid_points_x.index(x)
+        except:
+            self.grid_points_x.append(x)
+        try:
+            self.grid_points_y.index(y)
+        except:
+            self.grid_points_y.append(y)
+    self.step_x = 0.0
+    if len(self.grid_points_x) > 1:
+        self.step_x = self.grid_points_x[1] - self.grid_points_x[0]
+    self.step_y = 0.0
+    if len(self.grid_points_y) > 1:
+        self.step_y = self.grid_points_y[1] - self.grid_points_y[0]
+    if not self.config.default_radius:
+        if self.step_x:
+            self.config.radius = self.step_x / 3
+        else:
+            self.config.radius = self.step_y / 3
+    redraw_grid(self)
 
 # self.Data packed into column based bytes
 def save_dat(self):
     out = get_all_data(self)
-    columns = self.grid_entries_x / self.Cols
+    columns = len(self.grid_points_x) / self.group_cols
     chunk = len(out) / columns
     for x in range(columns):
         outfile = open(self.basename + '.dat%d.set%d' % (x, self.saves), 'wb')
@@ -531,38 +566,36 @@ def cmd_save(self):
 
 def print_config(self):
     print 'Display'
-    print '  Grid      %s' % self.img_display_grid
-    print '  Original  %s' % self.img_display_original
-    print '  Peephole  %s' % self.img_display_peephole
-    print '  Data      %s' % self.img_display_data
-    print '  Binary    %s' % self.img_display_binary
+    print '  Grid      %s' % self.config.img_display_grid
+    print '  Original  %s' % self.config.img_display_original
+    print '  Peephole  %s' % self.config.img_display_peephole
+    print '  Data      %s' % self.config.img_display_data
+    print '  Binary    %s' % self.config.img_display_binary
     print 'Pixel processing'
-    print '  Bit threshold divisor   %s' % self.bit_thresh_div
-    print '  Pixel threshold minimum %s' % self.pix_thresh_min
-    print '  Dilate    %s' % self.dilate
-    print '  Erode     %s' % self.erode
-    print '  Radius    %s' % self.radius
-    print '  Threshold %s' % self.threshold
+    print '  Bit threshold divisor   %s' % self.config.bit_thresh_div
+    print '  Pixel threshold minimum %s (0x%02X)' % (self.config.pix_thresh_min, self.config.pix_thresh_min)
+    print '  Dilate    %s' % self.config.dilate
+    print '  Erode     %s' % self.config.erode
+    print '  Radius    %s' % self.config.radius
+    print '  Threshold %s' % self.config.threshold
     print '  Step'
     print '    X       % 5.1f' % self.step_x
     print '    X       % 5.1f' % self.step_y
     print 'Bit state'
     print '  Data read %d' % self.data_read
-    print '  Cols      %d' % self.Cols
-    print '  Rows      %d' % self.Rows
+    print '  Bits per group'
+    print '    X       %d cols' % self.group_cols
+    print '    Y       %d rows' % self.group_rows
+    print '  Bit points total'
+    print '    X       %d cols' % len(self.grid_points_x)
+    print '    Y       %d rows' % len(self.grid_points_y)
     print '  Inverted  %d' % self.inverted
-    print '  Points'
-    print '    X       %d' % len(self.grid_points_x)
-    print '    Y       %d' % len(self.grid_points_y)
-    print '  Entries'
-    print '    X       %d' % self.grid_entries_x
-    print '    Y       %d' % self.grid_entries_y
     print '  Intersections %d' % len(self.grid_intersections)
 
 def cmd_help():
     print 'a/A  decrease/increase radius of read aperture'
     print 'b    blank image (to view template)'
-    print 'c    print configuration settings'
+    print 'c    print status (ie configuration)'
     print 'd/D  decrease/increase dilation'
     print 'e/E  decrease/increase erosion'
     print 'f/F  decrease font size'
@@ -623,7 +656,6 @@ def on_key(self, k):
         print 'deleting column'
         self.grid_points_x.remove(self.grid_points_x[self.Edit_x])
         self.Edit_x = -1
-        self.grid_entries_x -= 1
         read_data(self)
     elif k == 65362 and self.Edit_y >= 0:
         # up arrow
@@ -640,8 +672,8 @@ def on_key(self, k):
     elif k == 65363 and self.Edit_x >= 0:
         # right arrow - edit entrie column group
         print 'editing column', self.Edit_x
-        sx = self.Edit_x - (self.Edit_x % self.Cols)
-        for x in range(sx, sx + self.Cols):
+        sx = self.Edit_x - (self.Edit_x % self.group_cols)
+        for x in range(sx, sx + self.group_cols):
             self.grid_points_x[x] += 1
         read_data(self)
     elif k == 65432 and self.Edit_x >= 0:
@@ -652,8 +684,8 @@ def on_key(self, k):
     elif k == 65361 and self.Edit_x >= 0:
         # left arrow
         print 'editing column', self.Edit_x
-        sx = self.Edit_x - (self.Edit_x % self.Cols)
-        for x in range(sx, sx + self.Cols):
+        sx = self.Edit_x - (self.Edit_x % self.group_cols)
+        for x in range(sx, sx + self.group_cols):
             self.grid_points_x[x] -= 1
         read_data(self)
     elif k == 65430 and self.Edit_x >= 0:
@@ -665,7 +697,6 @@ def on_key(self, k):
         # delete
         print 'deleting row', self.Edit_y
         self.grid_points_y.remove(self.Edit_y)
-        self.grid_entries_y -= 1
         self.Edit_y = -1
         read_data(self)
     elif k == chr(10):
@@ -675,81 +706,81 @@ def on_key(self, k):
         print 'Done editing'
         read_data(self)
     elif k == 'a':
-        if self.radius:
-            self.radius -= 1
+        if self.config.radius:
+            self.config.radius -= 1
             read_data(self)
-        print 'Radius: %d' % self.radius
+        print 'Radius: %d' % self.config.radius
     elif k == 'A':
-        self.radius += 1
+        self.config.radius += 1
         read_data(self)
-        print 'Radius: %d' % self.radius
+        print 'Radius: %d' % self.config.radius
     elif k == 'b':
-        self.img_display_blank_image = not self.img_display_blank_image
+        self.config.img_display_blank_image = not self.config.img_display_blank_image
     elif k == 'c':
         print_config(self)
     elif k == 'd':
-        self.dilate = max(self.dilate - 1, 0)
-        print 'Dilate: %d' % self.dilate
+        self.config.dilate = max(self.config.dilate - 1, 0)
+        print 'Dilate: %d' % self.config.dilate
     elif k == 'D':
-        self.dilate += 1
-        print 'Dilate: %d' % self.dilate
+        self.config.dilate += 1
+        print 'Dilate: %d' % self.config.dilate
     elif k == 'e':
-        self.erode = max(self.erode - 1, 0)
-        print 'Erode: %d' % self.erode
+        self.config.erode = max(self.config.erode - 1, 0)
+        print 'Erode: %d' % self.config.erode
     elif k == 'E':
-        self.erode += 1
-        print 'Erode: %d' % self.erode
+        self.config.erode += 1
+        print 'Erode: %d' % self.config.erode
     elif k == 'f':
-        if self.font_size > 0.1:
-            self.font_size -= 0.1
+        if self.config.font_size > 0.1:
+            self.config.font_size -= 0.1
             self.font = cv.InitFont(
                 cv.CV_FONT_HERSHEY_SIMPLEX,
-                hscale=self.font_size,
+                hscale=self.config.font_size,
                 vscale=1.0,
                 shear=0,
                 thickness=1,
                 lineType=8)
-        print 'Font size: %d' % self.font_size
+        print 'Font size: %d' % self.config.font_size
     elif k == 'F':
-        self.font_size += 0.1
+        self.config.font_size += 0.1
         self.font = cv.InitFont(
             cv.CV_FONT_HERSHEY_SIMPLEX,
-            hscale=self.font_size,
+            hscale=self.config.font_size,
             vscale=1.0,
             shear=0,
             thickness=1,
             lineType=8)
-        print 'Font size: %d' % self.font_size
+        print 'Font size: %d' % self.config.font_size
     elif k == 'g':
-        self.img_display_grid = not self.img_display_grid
-        print 'Display grid:', self.img_display_grid
+        self.config.img_display_grid = not self.config.img_display_grid
+        print 'Display grid:', self.config.img_display_grid
     elif k == 'h' or k == '?':
         cmd_help()
     elif k == 'H':
-        self.img_display_binary = not self.img_display_binary
-        print 'Display binary:', self.img_display_binary
+        self.config.img_display_binary = not self.config.img_display_binary
+        print 'Display binary:', self.config.img_display_binary
     elif k == 'i':
         self.inverted = not self.inverted
         print 'Inverted:', self.inverted
     elif k == 'l':
-        self.LSB_Mode = not self.LSB_Mode
-        print 'LSB self.Data mode:', self.LSB_Mode
+        self.config.LSB_Mode = not self.config.LSB_Mode
+        print 'LSB self.Data mode:', self.config.LSB_Mode
     elif k == 'm':
-        self.bit_thresh_div -= 1
-        print 'thresh_div:', self.bit_thresh_div
+        self.config.bit_thresh_div -= 1
+        print 'thresh_div:', self.config.bit_thresh_div
         if self.data_read:
             read_data(self)
     elif k == 'M':
-        self.bit_thresh_div += 1
-        print 'thresh_div:', self.bit_thresh_div
+        self.config.bit_thresh_div += 1
+        print 'thresh_div:', self.config.bit_thresh_div
         if self.data_read:
             read_data(self)
     elif k == 'o':
-        self.img_display_original = not self.img_display_original
-        print 'display original:', self.img_display_original
+        self.config.img_display_original = not self.config.img_display_original
+        print 'display original:', self.config.img_display_original
     elif k == 'p':
-        self.img_display_peephole = not self.img_display_peephole
-        print 'display peephole:', self.img_display_peephole
+        self.config.img_display_peephole = not self.config.img_display_peephole
+        print 'display peephole:', self.config.img_display_peephole
     elif k == 'r':
         print 'reading %d points...' % len(self.grid_intersections)
         read_data(self)
@@ -757,24 +788,24 @@ def on_key(self, k):
         redraw_grid(self)
         self.data_read = False
     elif k == 's':
-        self.img_display_data = not self.img_display_data
-        print 'show data:', self.img_display_data
+        self.config.img_display_data = not self.config.img_display_data
+        print 'show data:', self.config.img_display_data
     elif k == 'S':
         cmd_save(self)
     elif k == 'q':
         print "Exiting on q"
         self.running = False
     elif k == 't':
-        self.threshold = True
-        print 'Threshold:', self.threshold
+        self.config.threshold = True
+        print 'Threshold:', self.config.threshold
     elif k == '-':
-        self.pix_thresh_min = max(self.pix_thresh_min - 1, 0x01)
-        print 'Threshold filter %02x' % self.pix_thresh_min
+        self.config.pix_thresh_min = max(self.config.pix_thresh_min - 1, 0x01)
+        print 'Threshold filter %02x' % self.config.pix_thresh_min
         if self.data_read:
             read_data(self)
     elif k == '+':
-        self.pix_thresh_min = min(self.pix_thresh_min + 1, 0xFF)
-        print 'Threshold filter %02x' % self.pix_thresh_min
+        self.config.pix_thresh_min = min(self.config.pix_thresh_min + 1, 0xFF)
+        print 'Threshold filter %02x' % self.config.pix_thresh_min
         if self.data_read:
             read_data(self)
     elif k == '/':
@@ -782,13 +813,13 @@ def on_key(self, k):
 
 def do_loop(self):
     # image processing
-    if self.threshold:
-        cv.Threshold(self.img_original, self.img_target, self.pix_thresh_min, 0xff, cv.CV_THRESH_BINARY)
+    if self.config.threshold:
+        cv.Threshold(self.img_original, self.img_target, self.config.pix_thresh_min, 0xff, cv.CV_THRESH_BINARY)
         cv.And(self.img_target, self.img_mask, self.img_target)
-    if self.dilate:
-        cv.Dilate(self.img_target, self.img_target, iterations=self.dilate)
-    if self.erode:
-        cv.Erode(self.img_target, self.img_target, iterations=self.erode)
+    if self.config.dilate:
+        cv.Dilate(self.img_target, self.img_target, iterations=self.config.dilate)
+    if self.config.erode:
+        cv.Erode(self.img_target, self.img_target, iterations=self.config.erode)
     show_image(self)
 
     sys.stdout.write('> ')
@@ -846,42 +877,17 @@ def run(self, image_fn, grid_file):
     self.img_hex = cv.CreateImage(cv.GetSize(self.img_original), cv.IPL_DEPTH_8U, 3)
     cv.Set(self.img_hex, cv.Scalar(0, 0, 0))
 
-    self.font_size = 1.0
+    self.config.font_size = 1.0
     self.font = cv.InitFont(
         cv.CV_FONT_HERSHEY_SIMPLEX,
-        hscale=self.font_size,
+        hscale=self.config.font_size,
         vscale=1.0,
         shear=0,
         thickness=1,
         lineType=8)
 
     if grid_file:
-        gridfile = open(grid_file, 'rb')
-        self.grid_intersections = pickle.load(gridfile)
-        gridfile.close()
-        for x, y in self.grid_intersections:
-            try:
-                self.grid_points_x.index(x)
-            except:
-                self.grid_points_x.append(x)
-                self.grid_entries_x += 1
-            try:
-                self.grid_points_y.index(y)
-            except:
-                self.grid_points_y.append(y)
-                self.grid_entries_y += 1
-        self.step_x = 0.0
-        if len(self.grid_points_x) > 1:
-            self.step_x = self.grid_points_x[1] - self.grid_points_x[0]
-        self.step_y = 0.0
-        if len(self.grid_points_y) > 1:
-            self.step_y = self.grid_points_y[1] - self.grid_points_y[0]
-        if not self.default_radius:
-            if self.step_x:
-                self.radius = self.step_x / 3
-            else:
-                self.radius = self.step_y / 3
-        redraw_grid(self)
+        load_grid(self, grid_file)
 
     self.title = "rompar %s" % image_fn
     cv.NamedWindow(self.title, 1)
@@ -920,14 +926,14 @@ if __name__ == "__main__":
 
     self = Rompar()
     self.debug = args.debug
-    self.Cols = args.cols_per_group
-    self.Rows = args.rows_per_group
+    self.group_cols = args.cols_per_group
+    self.group_rows = args.rows_per_group
     if args.radius:
-        self.default_radius = args.radius
-        self.radius = args.radius
+        self.config.default_radius = args.radius
+        self.config.radius = args.radius
     if args.bit_thresh_div:
-        self.bit_thresh_div = args.bit_thresh_div
+        self.config.bit_thresh_div = args.bit_thresh_div
     if args.pix_thresh:
-        self.pix_thresh_min = args.pix_thresh
+        self.config.pix_thresh_min = args.pix_thresh
 
     run(self, args.image, grid_file=args.grid_file)
