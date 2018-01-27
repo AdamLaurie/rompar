@@ -171,7 +171,7 @@ def on_mouse_left(event, mouse_x, mouse_y, flags, param):
                 for y in self.grid_points_y:
                     if mouse_y >= y - self.config.radius / 2 and mouse_y <= y + self.config.radius / 2:
                         value = toggle_data(self, x, y)
-                        print self.img_target[x, y]
+                        #print self.img_target[x, y]
                         #print 'value', value
                         if value == '0':
                             cv.Circle(
@@ -360,22 +360,33 @@ def draw_line(self, x, y, direction, intersections):
     print 'draw_line grid intersections:', len(self.grid_intersections)
 
 
-def read_data(self):
+def read_data(self, data_ref=None):
     redraw_grid(self)
 
     # maximum possible value if all pixels are set
     maxval = (self.config.radius * self.config.radius) * 255
     print 'read_data max aperture value:', maxval
 
-    self.Data = []
-    for x, y in self.grid_intersections:
-        value = 0
-        # FIXME: misleading
-        # This isn't a radius but rather a bounding box
-        for xx in range(x - (self.config.radius / 2), x + (self.config.radius / 2)):
-            for yy in range(y - (self.config.radius / 2), y + (self.config.radius / 2)):
-                value += get_pixel(self, yy, xx)
-        if value > maxval / self.config.bit_thresh_div:
+    if data_ref:
+        self.Data = data_ref
+    else:
+        # Compute
+        self.Data = []
+        for x, y in self.grid_intersections:
+            value = 0
+            # FIXME: misleading
+            # This isn't a radius but rather a bounding box
+            for xx in range(x - (self.config.radius / 2), x + (self.config.radius / 2)):
+                for yy in range(y - (self.config.radius / 2), y + (self.config.radius / 2)):
+                    value += get_pixel(self, yy, xx)
+            if value > maxval / self.config.bit_thresh_div:
+                self.Data.append('1')
+            else:
+                self.Data.append('0')
+
+    # Render
+    for i, (x, y) in enumerate(self.grid_intersections):
+        if self.Data[i] == '1':
             cv.Circle(
                 self.img_grid, (x, y), self.config.radius, cv.Scalar(0x00, 0xff, 0x00), thickness=2)
             # highlight if we're in edit mode
@@ -388,9 +399,8 @@ def read_data(self):
                         self.config.radius,
                         cv.Scalar(0xff, 0xff, 0xff),
                         thickness=2)
-            self.Data.append('1')
         else:
-            self.Data.append('0')
+            pass
     self.data_read = True
 
 
@@ -424,9 +434,9 @@ def show_data(self):
                                (self.grid_points_x[column * self.group_cols],
                                 self.grid_points_y[row] + self.config.radius / 2 + 1), self.font,
                                cv.Scalar(0xff, 0xff, 0xff))
-        print outbin
-        print
-        print out
+        #print outbin
+        #print
+        #print out
     print
 
 
@@ -504,12 +514,12 @@ def cmd_find(self, k):
 
 def save_grid(self):
     gridout = open(self.basename + '.grid.%d' % self.saves, 'wb')
-    pickle.dump((self.grid_intersections, self.config), gridout)
+    pickle.dump((self.grid_intersections, self.Data, self.config), gridout)
     print 'grid saved to %s' % (self.basename + '.grid.%d' % self.saves)
 
 def load_grid(self, grid_file):
     with open(grid_file, 'rb') as gridfile:
-        self.grid_intersections, self.config = pickle.load(gridfile)
+        self.grid_intersections, data, self.config = pickle.load(gridfile)
 
     for x, y in self.grid_intersections:
         try:
@@ -532,6 +542,10 @@ def load_grid(self, grid_file):
         else:
             self.config.radius = self.step_y / 3
     redraw_grid(self)
+
+    if data:
+        print 'Initializing data'
+        read_data(self, data_ref=data)
 
 # self.Data packed into column based bytes
 def save_dat(self):
@@ -570,7 +584,7 @@ def print_config(self):
     print '  Original  %s' % self.config.img_display_original
     print '  Peephole  %s' % self.config.img_display_peephole
     print '  Data      %s' % self.config.img_display_data
-    print '  Binary    %s' % self.config.img_display_binary
+    print '    As binary %s' % self.config.img_display_binary
     print 'Pixel processing'
     print '  Bit threshold divisor   %s' % self.config.bit_thresh_div
     print '  Pixel threshold minimum %s (0x%02X)' % (self.config.pix_thresh_min, self.config.pix_thresh_min)
@@ -810,6 +824,8 @@ def on_key(self, k):
             read_data(self)
     elif k == '/':
         cmd_find(self, k)
+    #else:
+    #    print 'Unknown command %s' % k
 
 def do_loop(self):
     # image processing
@@ -886,18 +902,19 @@ def run(self, image_fn, grid_file):
         thickness=1,
         lineType=8)
 
-    if grid_file:
-        load_grid(self, grid_file)
-
     self.title = "rompar %s" % image_fn
     cv.NamedWindow(self.title, 1)
     cv.SetMouseCallback(self.title, on_mouse, self)
+
+    self.img_target = cv.CloneImage(self.img_original)
+
+    if grid_file:
+        load_grid(self, grid_file)
 
     cmd_help()
     cmd_help2()
 
     # main loop
-    self.img_target = cv.CloneImage(self.img_original)
     while self.running:
         try:
             do_loop(self)
@@ -914,9 +931,9 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Extract mask ROM image')
     parser.add_argument('--radius', type=int, help='Use given radius for display, bounded square for detection')
-    parser.add_argument('--bit-thresh-div', type=int, help='Bit set area threshold divisor')
+    parser.add_argument('--bit-thresh-div', type=str, help='Bit set area threshold divisor')
     # Only care about min
-    parser.add_argument('--pix-thresh', type=int, help='Pixel is set threshold minimum')
+    parser.add_argument('--pix-thresh', type=str, help='Pixel is set threshold minimum')
     parser.add_argument('--debug', action='store_true', help='')
     parser.add_argument('image', help='Input image')
     parser.add_argument('cols_per_group', type=int, help='')
@@ -932,8 +949,8 @@ if __name__ == "__main__":
         self.config.default_radius = args.radius
         self.config.radius = args.radius
     if args.bit_thresh_div:
-        self.config.bit_thresh_div = args.bit_thresh_div
+        self.config.bit_thresh_div = int(args.bit_thresh_div, 0)
     if args.pix_thresh:
-        self.config.pix_thresh_min = args.pix_thresh
+        self.config.pix_thresh_min = int(args.pix_thresh, 0)
 
     run(self, args.image, grid_file=args.grid_file)
