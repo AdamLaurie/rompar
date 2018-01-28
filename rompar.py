@@ -23,6 +23,38 @@ import sys
 import pickle
 import traceback
 
+K_RIGHT = 65363
+K_DOWN = 65362
+K_LEFT = 65361
+K_UP = 65364
+
+import subprocess
+def screen_wh():
+    cmd = ['xrandr']
+    cmd2 = ['grep', '*']
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+    p2 = subprocess.Popen(cmd2, stdin=p.stdout, stdout=subprocess.PIPE)
+    p.stdout.close()
+     
+    resolution_string, _junk = p2.communicate()
+    resolution = resolution_string.split()[0]
+    width, height = resolution.split('x')
+    return int(width), int(height)
+
+class View(object):
+    def __init__(self):
+        # Display objects
+        # Crop / viewport
+        self.x = 0
+        self.y = 0
+        screenw, screenh = screen_wh()
+        # Displayed coordinates
+        self.w = screenw - 100
+        self.h = screenh - 100
+        # Step increment
+        self.incx = screenw // 3
+        self.incy = screenh // 3
+
 class Config(object):
     def __init__(self):
         # Display options
@@ -59,6 +91,8 @@ class Config(object):
     
         self.font_size = None
 
+        self.view = View()
+
 class Rompar(object):
     def __init__(self):
         # Main state
@@ -94,13 +128,13 @@ class Rompar(object):
         # Process events while true
         self.running = True
 
-        # Display objects
         # Image buffers
         self.img_target = None
         self.img_grid = None
         self.img_mask = None
         self.img_peephole = None
         self.img_display = None
+        self.img_display_viewport = None
         self.img_blank = None
         self.img_hex = None
         # Font currently rendering
@@ -160,16 +194,16 @@ def update_radius(self):
         elif self.step_y:
             self.config.radius = int(self.step_y / 3)
 
-def on_mouse_left(event, mouse_x, mouse_y, flags, param):
+def on_mouse_left(img_x, img_y, flags, param):
     self = param
 
     # Edit data
     if self.data_read:
         # find nearest intersection and toggle its value
         for x in self.grid_points_x:
-            if mouse_x >= x - self.config.radius / 2 and mouse_x <= x + self.config.radius / 2:
+            if img_x >= x - self.config.radius / 2 and img_x <= x + self.config.radius / 2:
                 for y in self.grid_points_y:
-                    if mouse_y >= y - self.config.radius / 2 and mouse_y <= y + self.config.radius / 2:
+                    if img_y >= y - self.config.radius / 2 and img_y <= y + self.config.radius / 2:
                         value = toggle_data(self, x, y)
                         #print self.img_target[x, y]
                         #print 'value', value
@@ -189,38 +223,38 @@ def on_mouse_left(event, mouse_x, mouse_y, flags, param):
                         show_image(self)
     # Edit grid
     else:
-        #if not Target[mouse_y, mouse_x]:
+        #if not Target[img_y, img_x]:
         if not flags == cv.CV_EVENT_FLAG_SHIFTKEY and not get_pixel(self,
-                mouse_y, mouse_x):
+                img_y, img_x):
             print 'autocenter: miss!'
             return
     
         # only draw a single line if this is the first one
         if len(self.grid_points_x) == 0 or self.group_cols == 1:
             if flags != cv.CV_EVENT_FLAG_SHIFTKEY:
-                mouse_x, mouse_y = auto_center(self, mouse_x, mouse_y)
+                img_x, img_y = auto_center(self, img_x, img_y)
 
             # don't try to auto-center if shift key pressed
-            draw_line(self, mouse_x, mouse_y, 'V', False)
-            self.grid_points_x.append(mouse_x)
+            draw_line(self, img_x, img_y, 'V', False)
+            self.grid_points_x.append(img_x)
             if self.group_rows == 1:
-                draw_line(self, mouse_x, mouse_y, 'V', True)
+                draw_line(self, img_x, img_y, 'V', True)
         else:
             # set up auto draw
             if len(self.grid_points_x) == 1:
                 # use a float to reduce rounding errors
-                self.step_x = float(mouse_x - self.grid_points_x[0]) / (self.group_cols - 1)
+                self.step_x = float(img_x - self.grid_points_x[0]) / (self.group_cols - 1)
                 # reset stored self.Data as main loop will add all entries
-                mouse_x = self.grid_points_x[0]
+                img_x = self.grid_points_x[0]
                 self.grid_points_x = []
                 update_radius(self)
             # draw a full set of self.group_cols
             for x in range(self.group_cols):
-                draw_x = int(mouse_x + x * self.step_x)
+                draw_x = int(img_x + x * self.step_x)
                 self.grid_points_x.append(draw_x)
-                draw_line(self, draw_x, mouse_y, 'V', True)
+                draw_line(self, draw_x, img_y, 'V', True)
 
-def on_mouse_right(event, mouse_x, mouse_y, flags, param):
+def on_mouse_right(img_x, img_y, flags, param):
     self = param
 
     # Edit data
@@ -228,12 +262,12 @@ def on_mouse_right(event, mouse_x, mouse_y, flags, param):
         # find row and select for editing
         for x in self.grid_points_x:
             for y in self.grid_points_y:
-                if mouse_y >= y - self.config.radius / 2 and mouse_y <= y + self.config.radius / 2:
+                if img_y >= y - self.config.radius / 2 and img_y <= y + self.config.radius / 2:
                     #print 'value', get_data(x,y)
                     # select the whole row
                     xcount = 0
                     for x in self.grid_points_x:
-                        if mouse_x >= x - self.config.radius / 2 and mouse_x <= x + self.config.radius / 2:
+                        if img_x >= x - self.config.radius / 2 and img_x <= x + self.config.radius / 2:
                             self.Edit_x = xcount
                             break
                         else:
@@ -247,45 +281,48 @@ def on_mouse_right(event, mouse_x, mouse_y, flags, param):
     # Edit grid
     else:
         if not flags == cv.CV_EVENT_FLAG_SHIFTKEY and not get_pixel(self,
-                mouse_y, mouse_x):
+                img_y, img_x):
             print 'autocenter: miss!'
             return
         # only draw a single line if this is the first one
         if len(self.grid_points_y) == 0 or self.group_rows == 1:
             if flags != cv.CV_EVENT_FLAG_SHIFTKEY:
-                mouse_x, mouse_y = auto_center(self, mouse_x, mouse_y)
+                img_x, img_y = auto_center(self, img_x, img_y)
 
-            draw_line(self, mouse_x, mouse_y, 'H', False)
-            self.grid_points_y.append(mouse_y)
+            draw_line(self, img_x, img_y, 'H', False)
+            self.grid_points_y.append(img_y)
             if self.group_rows == 1:
-                draw_line(self, mouse_x, mouse_y, 'H', True)
+                draw_line(self, img_x, img_y, 'H', True)
         else:
             # set up auto draw
             if len(self.grid_points_y) == 1:
                 # use a float to reduce rounding errors
-                self.step_y = float(mouse_y - self.grid_points_y[0]) / (self.group_rows - 1)
+                self.step_y = float(img_y - self.grid_points_y[0]) / (self.group_rows - 1)
                 # reset stored self.Data as main loop will add all entries
-                mouse_y = self.grid_points_y[0]
+                img_y = self.grid_points_y[0]
                 self.grid_points_y = []
                 update_radius(self)
             # draw a full set of self.group_rows
             for y in range(self.group_rows):
-                draw_y = int(mouse_y + y * self.step_y)
+                draw_y = int(img_y + y * self.step_y)
                 # only draw up to the edge of the image
                 if draw_y > self.img_original.height:
                     break
                 self.grid_points_y.append(draw_y)
-                draw_line(self, mouse_x, draw_y, 'H', True)
+                draw_line(self, img_x, draw_y, 'H', True)
 
 
 # mouse events
 def on_mouse(event, mouse_x, mouse_y, flags, param):
+    img_x = mouse_x + self.config.view.x
+    img_y = mouse_y + self.config.view.y
+
     # draw vertical grid lines
     if event == cv.CV_EVENT_LBUTTONDOWN:
-        on_mouse_left(event, mouse_x, mouse_y, flags, param)
+        on_mouse_left(img_x, img_y, flags, param)
     # draw horizontal grid lines
     elif event == cv.CV_EVENT_RBUTTONDOWN:
-        on_mouse_right(event, mouse_x, mouse_y, flags, param)
+        on_mouse_right(img_x, img_y, flags, param)
 
 
 def show_image(self):
@@ -307,9 +344,14 @@ def show_image(self):
         show_data(self)
         cv.Or(self.img_display, self.img_hex, self.img_display)
 
-    cv.ShowImage(self.title, self.img_display)
+    self.img_display_viewport = self.img_display[self.config.view.y:self.config.view.y+self.config.view.h,
+                                                 self.config.view.x:self.config.view.x+self.config.view.w]
+    cv.ShowImage(self.title, self.img_display_viewport)
 
 def auto_center(self, x, y):
+    '''
+    Auto center image global x/y coordinate on contiguous pixel x/y runs
+    '''
     x_min = x
     while get_pixel(self, y, x_min) != 0.0:
         x_min -= 1
@@ -514,12 +556,12 @@ def cmd_find(self, k):
 
 def save_grid(self):
     gridout = open(self.basename + '.grid.%d' % self.saves, 'wb')
-    pickle.dump((self.grid_intersections, self.Data, self.config), gridout)
+    pickle.dump((self.grid_intersections, self.Data, self.grid_points_x, self.grid_points_y, self.config), gridout)
     print 'grid saved to %s' % (self.basename + '.grid.%d' % self.saves)
 
 def load_grid(self, grid_file):
     with open(grid_file, 'rb') as gridfile:
-        self.grid_intersections, data, self.config = pickle.load(gridfile)
+        self.grid_intersections, data, self.grid_points_x, self.grid_points_y, self.config = pickle.load(gridfile)
 
     for x, y in self.grid_intersections:
         try:
@@ -565,6 +607,14 @@ def save_txt(self):
     with open(self.basename + '.txt%d' % self.saves, 'w') as outfile: 
         pass
 
+def pan(self, x, y):
+    #imgw = self.img_target.cols
+    #imgh = self.img_target.rows
+    #imgw, imgh, _channels = self.img_target.shape
+    imgw, imgh = cv.GetSize(self.img_target)
+    self.config.view.x = min(max(0, self.config.view.x + x), imgw - self.config.view.w)
+    self.config.view.y = min(max(0, self.config.view.y + y), imgh - self.config.view.h)
+
 def cmd_save(self):
     print 'saving...'
 
@@ -605,6 +655,13 @@ def print_config(self):
     print '    Y       %d rows' % len(self.grid_points_y)
     print '  Inverted  %d' % self.inverted
     print '  Intersections %d' % len(self.grid_intersections)
+    print '  Viewport'
+    print '    X       %d' % self.config.view.x
+    print '    Y       %d' % self.config.view.y
+    print '    W       %d' % self.config.view.w
+    print '    H       %d' % self.config.view.h
+    print '    PanX    %d' % self.config.view.incx
+    print '    PanY    %d' % self.config.view.incy
 
 def cmd_help():
     print 'a/A  decrease/increase radius of read aperture'
@@ -671,36 +728,46 @@ def on_key(self, k):
         self.grid_points_x.remove(self.grid_points_x[self.Edit_x])
         self.Edit_x = -1
         read_data(self)
-    elif k == 65362 and self.Edit_y >= 0:
+    elif k == K_LEFT:
+        pan(self, -self.config.view.incx, 0)
+    elif k == K_RIGHT:
+        pan(self, self.config.view.incx, 0)
+    elif k == K_UP:
+        pan(self, 0, -self.config.view.incy)
+    elif k == K_DOWN:
+        pan(self, 0, self.config.view.incy)
+        '''
+    elif k == K_UP and self.Edit_y >= 0:
         # up arrow
         print 'editing line', self.Edit_y
         self.grid_points_y[self.grid_points_y.index(self.Edit_y)] -= 1
         self.Edit_y -= 1
         read_data(self)
-    elif k == 65364 and self.Edit_y >= 0:
+    elif k == K_DOWN and self.Edit_y >= 0:
         # down arrow
         print 'editing line', self.Edit_y
         self.grid_points_y[self.grid_points_y.index(self.Edit_y)] += 1
         self.Edit_y += 1
         read_data(self)
-    elif k == 65363 and self.Edit_x >= 0:
+    elif k == K_RIGHT and self.Edit_x >= 0:
         # right arrow - edit entrie column group
         print 'editing column', self.Edit_x
         sx = self.Edit_x - (self.Edit_x % self.group_cols)
         for x in range(sx, sx + self.group_cols):
             self.grid_points_x[x] += 1
         read_data(self)
-    elif k == 65432 and self.Edit_x >= 0:
-        # right arrow on numpad - edit single column
-        print 'editing column', self.Edit_x
-        self.grid_points_x[self.Edit_x] += 1
-        read_data(self)
-    elif k == 65361 and self.Edit_x >= 0:
+    elif k == K_LEFT and self.Edit_x >= 0:
         # left arrow
         print 'editing column', self.Edit_x
         sx = self.Edit_x - (self.Edit_x % self.group_cols)
         for x in range(sx, sx + self.group_cols):
             self.grid_points_x[x] -= 1
+        read_data(self)
+        '''
+    elif k == 65432 and self.Edit_x >= 0:
+        # right arrow on numpad - edit single column
+        print 'editing column', self.Edit_x
+        self.grid_points_x[self.Edit_x] += 1
         read_data(self)
     elif k == 65430 and self.Edit_x >= 0:
         # left arrow on numpad - edit single column
