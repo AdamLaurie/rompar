@@ -92,6 +92,8 @@ class Config(object):
         self.font_size = None
 
         self.view = View()
+        
+        self.save_dat = False
 
 class Rompar(object):
     def __init__(self):
@@ -224,11 +226,13 @@ def on_mouse_left(img_x, img_y, flags, param):
     # Edit grid
     else:
         #if not Target[img_y, img_x]:
-        if not flags == cv.CV_EVENT_FLAG_SHIFTKEY and not get_pixel(self,
+        if flags != cv.CV_EVENT_FLAG_SHIFTKEY and not get_pixel(self,
                 img_y, img_x):
             print 'autocenter: miss!'
             return
-    
+
+        if img_x in self.grid_points_x:
+            return
         # only draw a single line if this is the first one
         if len(self.grid_points_x) == 0 or self.group_cols == 1:
             if flags != cv.CV_EVENT_FLAG_SHIFTKEY:
@@ -280,9 +284,11 @@ def on_mouse_right(img_x, img_y, flags, param):
                     return
     # Edit grid
     else:
-        if not flags == cv.CV_EVENT_FLAG_SHIFTKEY and not get_pixel(self,
+        if flags != cv.CV_EVENT_FLAG_SHIFTKEY and not get_pixel(self,
                 img_y, img_x):
             print 'autocenter: miss!'
+            return
+        if img_y in self.grid_points_y:
             return
         # only draw a single line if this is the first one
         if len(self.grid_points_y) == 0 or self.group_rows == 1:
@@ -402,7 +408,10 @@ def draw_line(self, x, y, direction, intersections):
     print 'draw_line grid intersections:', len(self.grid_intersections)
 
 
-def read_data(self, data_ref=None):
+def read_data(self, data_ref=None, force=False):
+    if not force and not self.data_read:
+        return
+
     redraw_grid(self)
 
     # maximum possible value if all pixels are set
@@ -410,8 +419,11 @@ def read_data(self, data_ref=None):
     print 'read_data max aperture value:', maxval
 
     if data_ref:
+        print 'read_data: loading reference data (%d entries)' % len(data_ref)
+        print 'Grid intersections: %d' % len(self.grid_intersections)
         self.Data = data_ref
     else:
+        print 'read_data: computing'
         # Compute
         self.Data = []
         for x, y in self.grid_intersections:
@@ -483,6 +495,7 @@ def show_data(self):
 
 
 def get_all_data(self):
+    '''Return data as bytes'''
     out = ''
     for column in range(len(self.grid_points_x) / self.group_cols):
         for row in range(len(self.grid_points_y)):
@@ -504,10 +517,29 @@ def get_all_data(self):
                 out += chr(int(thisbyte, 2))
     return out
 
+def data_as_xy(self):
+    '''Return data as binary chars in ret[(x, y)] map'''
+    ret = {}
+    for d, (x, y) in zip(self.Data, self.grid_intersections):
+        ret[(x, y)] = d
+    return ret
+
+def data_as_cr(self):
+    '''Return data as binary chars in ret[(column, row)] map'''
+    ret = {}
+    xys = data_as_xy(self)
+    for xi, x in enumerate(self.grid_points_x):
+        for yi, y in enumerate(self.grid_points_y):
+            ret[(xi, yi)] = xys[(x, y)]
+    return ret
 
 # call with exact values for intersection
 def get_data(self, x, y):
     return self.Data[self.grid_intersections.index((x, y))]
+
+def set_data(self, x, y, val):
+    i = self.grid_intersections.index((x, y))
+    self.Data[i] = val
 
 def toggle_data(self, x, y):
     i = self.grid_intersections.index((x, y))
@@ -555,23 +587,81 @@ def cmd_find(self, k):
     print 'searching for', shx.upper()
 
 def save_grid(self):
-    gridout = open(self.basename + '.grid.%d' % self.saves, 'wb')
+    fn = self.basename + '_s%d.grid' % self.saves
+    gridout = open(fn, 'wb')
     pickle.dump((self.grid_intersections, self.Data, self.grid_points_x, self.grid_points_y, self.config), gridout)
-    print 'grid saved to %s' % (self.basename + '.grid.%d' % self.saves)
+    print 'Saved %s' % fn
+
+# Hack to fix bad place
+def on_load_grid(self, data):
+    src = [2699, 2730, 2762, 2794, 2826, 2858, 2890, 2922, 2954, 2986, 3018, 3050, 3082, 3114, 3146, 3178]
+    dst = [2666, 2699, 2730, 2762, 2794, 2826, 2858, 2890, 2922, 2954, 2986, 3018, 3050, 3082, 3114, 3146]
+    data2 = list(data)
+    for i, (x, y) in enumerate(self.grid_intersections):
+        try:
+            xi = src.index(x)
+        except ValueError:
+            continue
+        x2 = dst[xi]
+        self.grid_intersections[i] = (x2, y)
+        # Data should move to next column
+        if xi < 15:
+            data2[i + 1] = data[i]
+    data = data2
+
+    # De-duplicate rows/cols
+    # Throw away additional entries
+    # Keep data and grid in sync
+    if 1:
+        data2 = []
+        grid_intersections = []
+        s = set()
+        for d, gi in zip(data, self.grid_intersections):
+            if gi not in s:
+                data2.append(d)
+                grid_intersections.append(gi)
+                s.add(gi)
+        print 'Data %d => %d elements' % (len(data), len(data2))
+        data = data2
+        self.grid_intersections = grid_intersections
+
+    # Check for corrupt x/y from duplicate entries
+    if 0:
+        if len(set(self.grid_points_x)) != len(self.grid_points_x):
+            raise Exception()
+        if len(set(self.grid_points_y)) != len(self.grid_points_y):
+            import collections
+            print [item for item, count in collections.Counter(self.grid_points_y).items() if count > 1]
+            raise Exception()
+
+    return data
 
 def load_grid(self, grid_file):
     with open(grid_file, 'rb') as gridfile:
         self.grid_intersections, data, self.grid_points_x, self.grid_points_y, self.config = pickle.load(gridfile)
+
+    #data = on_load_grid(self, data)
+
+    self.grid_points_x = []
+    self.grid_points_y = []
 
     for x, y in self.grid_intersections:
         try:
             self.grid_points_x.index(x)
         except:
             self.grid_points_x.append(x)
+
         try:
             self.grid_points_y.index(y)
         except:
             self.grid_points_y.append(y)
+    print 'Grid points: %d x, %d y' % (len(self.grid_points_x), len(self.grid_points_y))
+    squared = len(self.grid_points_x) * len(self.grid_points_y)
+    if len(self.grid_intersections) != squared:
+        print self.grid_points_x
+        print self.grid_points_y
+        raise Exception("%d != %d" % (len(self.grid_intersections), squared))
+
     self.step_x = 0.0
     if len(self.grid_points_x) > 1:
         self.step_x = self.grid_points_x[1] - self.grid_points_x[0]
@@ -587,7 +677,9 @@ def load_grid(self, grid_file):
 
     if data:
         print 'Initializing data'
-        read_data(self, data_ref=data)
+        if len(data) != len(self.grid_intersections):
+            raise Exception("%d != %d" % (len(data), len(self.grid_intersections)))    
+        read_data(self, data_ref=data, force=True)
 
 # self.Data packed into column based bytes
 def save_dat(self):
@@ -595,17 +687,27 @@ def save_dat(self):
     columns = len(self.grid_points_x) / self.group_cols
     chunk = len(out) / columns
     for x in range(columns):
-        outfile = open(self.basename + '.dat%d.set%d' % (x, self.saves), 'wb')
-        outfile.write(out[x * chunk:x * chunk + chunk])
-        print '%d bytes written to %s' % (chunk,
-                                          self.basename + '.dat%d.set%d' %
-                                          (x, self.saves))
-        outfile.close()
+        fn = self.basename + '_s%d-%d.dat' % (self.saves, x)
+        with open(fn, 'wb') as outfile:
+            outfile.write(out[x * chunk:x * chunk + chunk])
+            print '%s: %d bytes' % (fn, chunk)
 
-# FIXME: want an as shown XY grid
 def save_txt(self):
-    with open(self.basename + '.txt%d' % self.saves, 'w') as outfile: 
-        pass
+    '''Write text file like bits sown in GUI. Space between row/cols'''
+    fn = self.basename + '_s%d.txt' % self.saves
+    crs = data_as_cr(self)
+    with open(fn, 'w') as f:
+        for row in xrange(len(self.grid_points_y)):
+            # Put a space between row gaps
+            if row and row % self.group_rows == 0:
+                f.write('\n')
+            for col in xrange(len(self.grid_points_x)):
+                if col and col % self.group_cols == 0:
+                    f.write(' ')
+                f.write(crs[(col, row)])
+            # Newline afer every row
+            f.write('\n')
+    print 'Saved %s' % fn
 
 def pan(self, x, y):
     #imgw = self.img_target.cols
@@ -623,7 +725,8 @@ def cmd_save(self):
     if not self.data_read:
         print 'No bits to save'
     else:
-        save_dat(self)
+        if 0 and self.save_dat:
+            save_dat(self)
         save_txt(self)
 
     self.saves += 1
@@ -802,15 +905,19 @@ def on_key(self, k):
     elif k == 'd':
         self.config.dilate = max(self.config.dilate - 1, 0)
         print 'Dilate: %d' % self.config.dilate
+        read_data(self)
     elif k == 'D':
         self.config.dilate += 1
         print 'Dilate: %d' % self.config.dilate
+        read_data(self)
     elif k == 'e':
         self.config.erode = max(self.config.erode - 1, 0)
         print 'Erode: %d' % self.config.erode
+        read_data(self)
     elif k == 'E':
         self.config.erode += 1
         print 'Erode: %d' % self.config.erode
+        read_data(self)
     elif k == 'f':
         if self.config.font_size > 0.1:
             self.config.font_size -= 0.1
@@ -849,13 +956,11 @@ def on_key(self, k):
     elif k == 'm':
         self.config.bit_thresh_div -= 1
         print 'thresh_div:', self.config.bit_thresh_div
-        if self.data_read:
-            read_data(self)
+        read_data(self)
     elif k == 'M':
         self.config.bit_thresh_div += 1
         print 'thresh_div:', self.config.bit_thresh_div
-        if self.data_read:
-            read_data(self)
+        read_data(self)
     elif k == 'o':
         self.config.img_display_original = not self.config.img_display_original
         print 'display original:', self.config.img_display_original
@@ -864,7 +969,7 @@ def on_key(self, k):
         print 'display peephole:', self.config.img_display_peephole
     elif k == 'r':
         print 'reading %d points...' % len(self.grid_intersections)
-        read_data(self)
+        read_data(self, force=True)
     elif k == 'R':
         redraw_grid(self)
         self.data_read = False
