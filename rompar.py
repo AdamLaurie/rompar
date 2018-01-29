@@ -22,6 +22,7 @@ import cv2.cv as cv
 import sys
 import pickle
 import traceback
+import os
 
 K_RIGHT = 65363
 K_DOWN = 65362
@@ -112,7 +113,7 @@ class Rompar(object):
         self.Search_HEX = None
         # Number of save commands issued
         # Used to create unique save file postfix per save
-        self.saves = 0
+        self.saven = 0
 
         # >= 0 when in edit mode
         self.Edit_x = -1
@@ -586,8 +587,17 @@ def cmd_find(self, k):
         return
     print 'searching for', shx.upper()
 
+def symlinka(target, alias):
+    '''Atomic symlink'''
+    tmp = alias + '_'
+    if os.path.exists(tmp):
+        os.unlink(tmp)
+    os.symlink(target, alias + '_')
+    os.rename(tmp, alias)
+
 def save_grid(self):
-    fn = self.basename + '_s%d.grid' % self.saves
+    fn = self.basename + '_s%d.grid' % self.saven
+    symlinka(fn, self.basename + '.grid')
     gridout = open(fn, 'wb')
     pickle.dump((self.grid_intersections, self.Data, self.grid_points_x, self.grid_points_y, self.config), gridout)
     print 'Saved %s' % fn
@@ -642,19 +652,23 @@ def load_grid(self, grid_file):
 
     #data = on_load_grid(self, data)
 
-    self.grid_points_x = []
-    self.grid_points_y = []
+    # Possible only one direction is drawn
+    if self.grid_intersections:
+        # Some past DBs had corrupt sets with duplicates
+        # Maybe better to just trust them though
+        self.grid_points_x = []
+        self.grid_points_y = []
+        for x, y in self.grid_intersections:
+            try:
+                self.grid_points_x.index(x)
+            except:
+                self.grid_points_x.append(x)
+    
+            try:
+                self.grid_points_y.index(y)
+            except:
+                self.grid_points_y.append(y)
 
-    for x, y in self.grid_intersections:
-        try:
-            self.grid_points_x.index(x)
-        except:
-            self.grid_points_x.append(x)
-
-        try:
-            self.grid_points_y.index(y)
-        except:
-            self.grid_points_y.append(y)
     print 'Grid points: %d x, %d y' % (len(self.grid_points_x), len(self.grid_points_y))
     squared = len(self.grid_points_x) * len(self.grid_points_y)
     if len(self.grid_intersections) != squared:
@@ -687,14 +701,16 @@ def save_dat(self):
     columns = len(self.grid_points_x) / self.group_cols
     chunk = len(out) / columns
     for x in range(columns):
-        fn = self.basename + '_s%d-%d.dat' % (self.saves, x)
+        fn = self.basename + '_s%d-%d.dat' % (self.saven, x)
+        symlinka(fn, self.basename + '_%d.dat' % x)
         with open(fn, 'wb') as outfile:
             outfile.write(out[x * chunk:x * chunk + chunk])
             print '%s: %d bytes' % (fn, chunk)
 
 def save_txt(self):
     '''Write text file like bits sown in GUI. Space between row/cols'''
-    fn = self.basename + '_s%d.txt' % self.saves
+    fn = self.basename + '_s%d.txt' % self.saven
+    symlinka(fn, self.basename + '.txt')
     crs = data_as_cr(self)
     with open(fn, 'w') as f:
         for row in xrange(len(self.grid_points_y)):
@@ -717,9 +733,18 @@ def pan(self, x, y):
     self.config.view.x = min(max(0, self.config.view.x + x), imgw - self.config.view.w)
     self.config.view.y = min(max(0, self.config.view.y + y), imgh - self.config.view.h)
 
+def next_save(self):
+    '''Look for next unused save slot by checking grid files'''
+    while True:
+        fn = self.basename + '_s%d.grid' % self.saven
+        if not os.path.exists(fn):
+            break
+        self.saven += 1
+
 def cmd_save(self):
     print 'saving...'
 
+    next_save(self)
     save_grid(self)
 
     if not self.data_read:
@@ -728,8 +753,6 @@ def cmd_save(self):
         if 0 and self.save_dat:
             save_dat(self)
         save_txt(self)
-
-    self.saves += 1
 
 def print_config(self):
     print 'Display'
@@ -1106,6 +1129,8 @@ if __name__ == "__main__":
     parser.add_argument('--bit-thresh-div', type=str, help='Bit set area threshold divisor')
     # Only care about min
     parser.add_argument('--pix-thresh', type=str, help='Pixel is set threshold minimum')
+    parser.add_argument('--dilate', type=str, help='Dilation')
+    parser.add_argument('--erode', type=str, help='Erosion')
     parser.add_argument('--debug', action='store_true', help='')
     parser.add_argument('image', help='Input image')
     parser.add_argument('cols_per_group', type=int, help='')
@@ -1124,5 +1149,9 @@ if __name__ == "__main__":
         self.config.bit_thresh_div = int(args.bit_thresh_div, 0)
     if args.pix_thresh:
         self.config.pix_thresh_min = int(args.pix_thresh, 0)
+    if args.dilate:
+        self.config.dilate = int(args.dilate, 0)
+    if args.erode:
+        self.config.erode = int(args.erode, 0)
 
     run(self, args.image, grid_file=args.grid_file)
