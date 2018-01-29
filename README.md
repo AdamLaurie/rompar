@@ -5,7 +5,11 @@ Masked ROM optical data extraction tool.
 
 Latest version:
 
-  https://github.com/ApertureLabsLtd/rompar
+  https://github.com/SiliconAnalysis/rompar
+
+Original version by Adam Laurie, but significant changes by John McMaster
+
+Original message:
 
 Note that this initial version is very much a quick-and-dirty 'see if this method is useful'
 kind of tool. If it is, hopefully it will evolve into something pretty and elegant!
