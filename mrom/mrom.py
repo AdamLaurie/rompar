@@ -3,7 +3,24 @@ import string
 class InvalidData(Exception):
     pass
 
-class Decoder(object):
+def mask_b2i(maskb):
+    '''Convert bitmask to bit number'''
+    return {
+        0x80: 7,
+        0x40: 6,
+        0x20: 5,
+        0x10: 4,
+        0x08: 3,
+        0x04: 2,
+        0x02: 1,
+        0x01: 0,
+        }[maskb]
+
+def mask_i2b(maski):
+    '''Convert bit number to bitmask'''
+    return 1 << maski
+
+class MaskROM(object):
     def __init__(self, f_in, f_out, verbose=False):
         self.f_in = f_in
         self.f_out= f_out
@@ -57,6 +74,13 @@ class Decoder(object):
         not_bits = table.translate(table, '01')
         return txt.translate(table, not_bits)
 
-    def run(self):
+    def rc2ob(self, col, row):
+        '''Given image row/col return byte (offset, binary mask)'''
         raise Exception("Required")
 
+    def ob2rc(self, offset, maskb):
+        '''Given (offset, binary mask) return image row/col return byte'''
+        raise Exception("Required")
+
+    def txt2bin(self):
+        raise Exception("Required")

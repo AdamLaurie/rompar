@@ -1,13 +1,13 @@
 import string
 
 from util import hexdump
-from decoder import Decoder
+from mrom import MaskROM
 
 '''
 Reference ROM: decap #8, #9 (FIXME: add link)
 Reference version by EdHunter with help from Haze
 '''
-class D8041AH(Decoder):
+class D8041AH(MaskROM):
     def desc(self):
         return 'NEC D8041AH'
 
@@ -31,7 +31,7 @@ class D8041AH(Decoder):
         '''
         return True
 
-    def run(self):
+    def txt2bin(self):
         bits = self.txtbits()
     
         def bits2byte(s):
@@ -84,6 +84,6 @@ References
 -http://siliconpr0n.org/map/taito/m-001/mz_mit20x/
 # TODO: requested source code. Add something if we get it
 '''
-class MSL8042(Decoder):
+class MSL8042(MaskROM):
     def run(self):
         raise Exception("FIXME")
