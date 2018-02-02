@@ -595,62 +595,19 @@ def symlinka(target, alias):
     os.symlink(target, alias + '_')
     os.rename(tmp, alias)
 
-def save_grid(self):
-    fn = self.basename + '_s%d.grid' % self.saven
+def save_grid(self, fn=None):
+    if not fn:
+        fn = self.basename + '_s%d.grid' % self.saven
     symlinka(fn, self.basename + '.grid')
     gridout = open(fn, 'wb')
     pickle.dump((self.grid_intersections, self.Data, self.grid_points_x, self.grid_points_y, self.config), gridout)
     print 'Saved %s' % fn
 
-# Hack to fix bad place
-def on_load_grid(self, data):
-    src = [2699, 2730, 2762, 2794, 2826, 2858, 2890, 2922, 2954, 2986, 3018, 3050, 3082, 3114, 3146, 3178]
-    dst = [2666, 2699, 2730, 2762, 2794, 2826, 2858, 2890, 2922, 2954, 2986, 3018, 3050, 3082, 3114, 3146]
-    data2 = list(data)
-    for i, (x, y) in enumerate(self.grid_intersections):
-        try:
-            xi = src.index(x)
-        except ValueError:
-            continue
-        x2 = dst[xi]
-        self.grid_intersections[i] = (x2, y)
-        # Data should move to next column
-        if xi < 15:
-            data2[i + 1] = data[i]
-    data = data2
-
-    # De-duplicate rows/cols
-    # Throw away additional entries
-    # Keep data and grid in sync
-    if 1:
-        data2 = []
-        grid_intersections = []
-        s = set()
-        for d, gi in zip(data, self.grid_intersections):
-            if gi not in s:
-                data2.append(d)
-                grid_intersections.append(gi)
-                s.add(gi)
-        print 'Data %d => %d elements' % (len(data), len(data2))
-        data = data2
-        self.grid_intersections = grid_intersections
-
-    # Check for corrupt x/y from duplicate entries
-    if 0:
-        if len(set(self.grid_points_x)) != len(self.grid_points_x):
-            raise Exception()
-        if len(set(self.grid_points_y)) != len(self.grid_points_y):
-            import collections
-            print [item for item, count in collections.Counter(self.grid_points_y).items() if count > 1]
-            raise Exception()
-
-    return data
-
-def load_grid(self, grid_file):
-    with open(grid_file, 'rb') as gridfile:
-        self.grid_intersections, data, self.grid_points_x, self.grid_points_y, self.config = pickle.load(gridfile)
-
-    #data = on_load_grid(self, data)
+def load_grid(self, grid_file=None, apickle=None):
+    if not apickle:
+        with open(grid_file, 'rb') as gridfile:
+            apickle = pickle.load(gridfile)
+    self.grid_intersections, data, self.grid_points_x, self.grid_points_y, self.config = apickle
 
     # Possible only one direction is drawn
     if self.grid_intersections:
