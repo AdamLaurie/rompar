@@ -1,14 +1,14 @@
-from decoder import Decoder
+from mrom import MaskROM
 
 '''
 References
 RECON talk
 '''
 
-class SnesCIC(Decoder):
+class SnesCIC(MaskROM):
     def run(self):
         raise Exception("FIXME")
 
-class SnesPIF(Decoder):
+class SnesPIF(MaskROM):
     def run(self):
         raise Exception("FIXME")

@@ -41,7 +41,7 @@ def run(arch, fn_in, fn_out, invert=None, verbose=False):
     if invert:
         f_out = InvFile(f_out)
     d = dc(f_in, f_out, verbose=verbose)
-    d.run()
+    d.txt2bin()
 
 def list_arch():
     for a in arch2d.keys():
