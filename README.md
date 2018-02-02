@@ -10,14 +10,6 @@ Latest version:
 Original version by Adam Laurie, but significant changes by John McMaster
 
 
-mrom library
-
-Set of utilities to convert resulting .txt into binaries
-The canonical image orientation should be with the row/address decode circuitry to the lower and right of the image
-This makes it so that they can be optionally included in images and not effect the position
-When there already exists a strong convention otherwise, note it in the decode module
-Consider moving if shared between monkeys and such
-
 Original message:
 
 Note that this initial version is very much a quick-and-dirty 'see if this method is useful'
