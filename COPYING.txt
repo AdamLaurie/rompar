@@ -1,0 +1,3 @@
+The original code is licensed under GPL, see rompar.py for details
+However, there are related projects in here that are licensed under BSD
+
