@@ -98,6 +98,8 @@ class Config(object):
 
 class Rompar(object):
     def __init__(self):
+        self.gui = True
+
         # Main state
         # Have we attempted to decode bits?
         self.data_read = False
@@ -159,6 +161,8 @@ def to_bin(x):
 
 
 def redraw_grid(self):
+    if not self.gui:
+        return
     cv.Set(self.img_grid, cv.Scalar(0, 0, 0))
     cv.Set(self.img_peephole, cv.Scalar(0, 0, 0))
     self.grid_intersections = []
@@ -603,7 +607,8 @@ def save_grid(self, fn=None):
     pickle.dump((self.grid_intersections, self.Data, self.grid_points_x, self.grid_points_y, self.config), gridout)
     print 'Saved %s' % fn
 
-def load_grid(self, grid_file=None, apickle=None):
+def load_grid(self, grid_file=None, apickle=None, gui=True):
+    self.gui = gui
     if not apickle:
         with open(grid_file, 'rb') as gridfile:
             apickle = pickle.load(gridfile)
