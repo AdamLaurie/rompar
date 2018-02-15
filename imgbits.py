@@ -1,15 +1,15 @@
 import sys
 import os
-import rompar
 import json
-# Pickle hack
-from rompar import *
+
+from rompar.data import load_grid
+from rompar.config import Rompar
 
 from PIL import Image
 
 def run(img_fn_in, grid_fn_in, dir_out):
-    self = rompar.Rompar()
-    rompar.load_grid(self, grid_file=grid_fn_in, gui=False)
+    self = Rompar()
+    load_grid(self, grid_file=grid_fn_in, gui=False)
     im = Image.open(img_fn_in)
 
     if not os.path.exists(dir_out):
