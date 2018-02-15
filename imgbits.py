@@ -1,6 +1,7 @@
 import sys
 import os
 import rompar
+import json
 # Pickle hack
 from rompar import *
 
@@ -13,21 +14,46 @@ def run(img_fn_in, grid_fn_in, dir_out):
 
     if not os.path.exists(dir_out):
         os.mkdir(dir_out)
+    if not os.path.exists(dir_out + '/bit'):
+        os.mkdir(dir_out + '/bit')
 
-    dirs = {'0': dir_out + '/0', '1': dir_out + '/1'}
-    for d in dirs.values():
-        if not os.path.exists(d):
-            os.mkdir(d)
+    meta = {
+        "meta": {
+            "source": "rompar-imgbits",
+            "img": img_fn_in,
+        },
+        #"bit": meta_bits
+    }
 
+    meta_bits = {}
     for data, (xc, yc) in zip(self.Data, self.grid_intersections):
         x0 = xc - self.config.radius
         x1 = xc + self.config.radius
         y0 = yc - self.config.radius
         y1 = yc + self.config.radius
         
-        im2 = im.crop((x0, y0, x1, y1))
-        fn_out = dirs[data] + '/' + 'x%05d_y%05d.png' % (xc, yc)
-        im2.save(fn_out)
+        bitfn = "%02dgc-%02dgr.png" % (xc, yc)
+        meta_bit = {
+            # Global absolute coordinates
+            'col': self.grid_points_x.index(xc),
+            'row': self.grid_points_y.index(yc),
+            # Gloal pixels coordinates
+            'roi': (x0, y0, x1, y1),
+            # Answer frequency distribution like
+            # {'0': 3, '1': 1, '?': 1}
+            "dist": {data: 1},
+            "best": int(data),
+            }
+        #print meta_bit
+        imc = im.crop((x0, y0, x1, y1))
+        imc.save(os.path.join(dir_out, "bit", bitfn))
+        imc.close()
+        meta_bits[bitfn] = meta_bit
+
+    meta['bit'] = meta_bits
+
+    json.dump(meta, open(os.path.join(dir_out, 'meta.json'), 'w'),
+              sort_keys=True, indent=4, separators=(',', ': '))
 
 if __name__ == "__main__":
     import argparse

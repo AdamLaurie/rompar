@@ -20,9 +20,9 @@
 
 import cv2.cv as cv
 import sys
-import pickle
 import traceback
 import os
+import json
 
 K_RIGHT = 65363
 K_DOWN = 65362
@@ -123,7 +123,7 @@ class Rompar(object):
 
         # Processed data
         self.inverted = False
-        self.Data = []
+        self.data = []
         # Global
         self.grid_points_x = []
         self.grid_points_y = []
@@ -148,12 +148,12 @@ class Rompar(object):
         # Be more verbose
         # Crash on exceptions
         self.debug = False
+        self.basename = None
 
         self.config = Config()
 
 def get_pixel(self, x, y):
     return self.img_target[x, y][0] + self.img_target[x, y][1] + self.img_target[x, y][2]
-
 
 # create binary printable string
 def to_bin(x):
@@ -253,7 +253,7 @@ def on_mouse_left(img_x, img_y, flags, param):
             if len(self.grid_points_x) == 1:
                 # use a float to reduce rounding errors
                 self.step_x = float(img_x - self.grid_points_x[0]) / (self.group_cols - 1)
-                # reset stored self.Data as main loop will add all entries
+                # reset stored self.data as main loop will add all entries
                 img_x = self.grid_points_x[0]
                 self.grid_points_x = []
                 update_radius(self)
@@ -309,7 +309,7 @@ def on_mouse_right(img_x, img_y, flags, param):
             if len(self.grid_points_y) == 1:
                 # use a float to reduce rounding errors
                 self.step_y = float(img_y - self.grid_points_y[0]) / (self.group_rows - 1)
-                # reset stored self.Data as main loop will add all entries
+                # reset stored self.data as main loop will add all entries
                 img_y = self.grid_points_y[0]
                 self.grid_points_y = []
                 update_radius(self)
@@ -426,11 +426,11 @@ def read_data(self, data_ref=None, force=False):
     if data_ref:
         print 'read_data: loading reference data (%d entries)' % len(data_ref)
         print 'Grid intersections: %d' % len(self.grid_intersections)
-        self.Data = data_ref
+        self.data = data_ref
     else:
         print 'read_data: computing'
         # Compute
-        self.Data = []
+        self.data = []
         for x, y in self.grid_intersections:
             value = 0
             # FIXME: misleading
@@ -439,13 +439,13 @@ def read_data(self, data_ref=None, force=False):
                 for yy in range(y - (self.config.radius / 2), y + (self.config.radius / 2)):
                     value += get_pixel(self, yy, xx)
             if value > maxval / self.config.bit_thresh_div:
-                self.Data.append('1')
+                self.data.append('1')
             else:
-                self.Data.append('0')
+                self.data.append('0')
 
     # Render
     for i, (x, y) in enumerate(self.grid_intersections):
-        if self.Data[i] == '1':
+        if self.data[i] == '1':
             cv.Circle(
                 self.img_grid, (x, y), self.config.radius, cv.Scalar(0x00, 0xff, 0x00), thickness=2)
             # highlight if we're in edit mode
@@ -506,7 +506,7 @@ def get_all_data(self):
         for row in range(len(self.grid_points_y)):
             thischunk = ''
             for x in range(self.group_cols):
-                thisbit = self.Data[x * len(self.grid_points_y) + row +
+                thisbit = self.data[x * len(self.grid_points_y) + row +
                                column * self.group_cols * len(self.grid_points_y)]
                 if self.inverted:
                     if thisbit == '0':
@@ -525,7 +525,7 @@ def get_all_data(self):
 def data_as_xy(self):
     '''Return data as binary chars in ret[(x, y)] map'''
     ret = {}
-    for d, (x, y) in zip(self.Data, self.grid_intersections):
+    for d, (x, y) in zip(self.data, self.grid_intersections):
         ret[(x, y)] = d
     return ret
 
@@ -540,19 +540,19 @@ def data_as_cr(self):
 
 # call with exact values for intersection
 def get_data(self, x, y):
-    return self.Data[self.grid_intersections.index((x, y))]
+    return self.data[self.grid_intersections.index((x, y))]
 
 def set_data(self, x, y, val):
     i = self.grid_intersections.index((x, y))
-    self.Data[i] = val
+    self.data[i] = val
 
 def toggle_data(self, x, y):
     i = self.grid_intersections.index((x, y))
-    if self.Data[i] == '0':
-        self.Data[i] = '1'
+    if self.data[i] == '0':
+        self.data[i] = '1'
     else:
-        self.Data[i] = '0'
-    return self.Data[i]
+        self.data[i] = '0'
+    return self.data[i]
 
 def cmd_find(self, k):
     print 'Enter space delimeted HEX (in image window), e.g. 10 A1 EF: ',
@@ -600,19 +600,50 @@ def symlinka(target, alias):
     os.rename(tmp, alias)
 
 def save_grid(self, fn=None):
-    if not fn:
-        fn = self.basename + '_s%d.grid' % self.saven
-    symlinka(fn, self.basename + '.grid')
+    config = dict(self.config.__dict__)
+    config['view'] = config['view'].__dict__
+
+    # XXX: this first cut is partly due to ease of converting old DB
+    # Try to move everything non-volatile into config object
+    j = {
+        # Increment major when a fundamentally breaking change occurs
+        # minor reserved for now, but could be used for non-breaking
+        'version': (1, 0),
+        'grid_intersections': self.grid_intersections,
+        'data': self.data,
+        'grid_points_x': self.grid_points_x,
+        'grid_points_y': self.grid_points_y,
+        'fn': config,
+        'group_cols': self.group_cols,
+        'group_rows': self.group_rows,
+        'config': config,
+        }
+
+    if self.basename:
+        if not fn:
+            fn = self.basename + '_s%d.json' % self.saven
+        symlinka(fn, self.basename + '.json')
     gridout = open(fn, 'wb')
-    pickle.dump((self.grid_intersections, self.Data, self.grid_points_x, self.grid_points_y, self.config), gridout)
+    json.dump(j, gridout, indent=4, sort_keys=True)
     print 'Saved %s' % fn
 
-def load_grid(self, grid_file=None, apickle=None, gui=True):
+def load_grid(self, grid_file=None, grid_json=None, gui=True):
     self.gui = gui
-    if not apickle:
+
+    if not grid_json:
         with open(grid_file, 'rb') as gridfile:
-            apickle = pickle.load(gridfile)
-    self.grid_intersections, data, self.grid_points_x, self.grid_points_y, self.config = apickle
+            grid_json = json.load(gridfile)
+    self.grid_intersections = grid_json['grid_intersections']
+    data = grid_json['data']
+    self.grid_points_x = grid_json['grid_points_x']
+    self.grid_points_y = grid_json['grid_points_y']
+    # self.config = grid_json['config']
+    for k, v in grid_json['config'].iteritems():
+        if k == 'view':
+            for kv, vv in v.iteritems():
+                self.config.view.__dict__[kv] = vv
+        else:
+            self.config.__dict__[k] = v
 
     # Possible only one direction is drawn
     if self.grid_intersections:
@@ -657,7 +688,7 @@ def load_grid(self, grid_file=None, apickle=None, gui=True):
             raise Exception("%d != %d" % (len(data), len(self.grid_intersections)))    
         read_data(self, data_ref=data, force=True)
 
-# self.Data packed into column based bytes
+# self.data packed into column based bytes
 def save_dat(self):
     out = get_all_data(self)
     columns = len(self.grid_points_x) / self.group_cols
@@ -937,7 +968,7 @@ def on_key(self, k):
         print 'Inverted:', self.inverted
     elif k == 'l':
         self.config.LSB_Mode = not self.config.LSB_Mode
-        print 'LSB self.Data mode:', self.config.LSB_Mode
+        print 'LSB self.data mode:', self.config.LSB_Mode
     elif k == 'm':
         self.config.bit_thresh_div -= 1
         print 'thresh_div:', self.config.bit_thresh_div
@@ -1083,7 +1114,7 @@ def run(self, image_fn, grid_file):
 
     print 'Exiting'
 
-if __name__ == "__main__":
+def main():
     import argparse
 
     parser = argparse.ArgumentParser(description='Extract mask ROM image')
@@ -1117,3 +1148,6 @@ if __name__ == "__main__":
         self.config.erode = int(args.erode, 0)
 
     run(self, args.image, grid_file=args.grid_file)
+
+if __name__ == "__main__":
+    main()
