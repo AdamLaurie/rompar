@@ -90,6 +90,8 @@ class Rompar(object):
     def __init__(self):
         self.gui = True
 
+        self.img_fn = None
+
         # Main state
         # Have we attempted to decode bits?
         self.data_read = False

@@ -355,16 +355,38 @@ def do_loop(self):
     on_key(self, k)
 
 
-def run(selfl, image_fn, grid_file):
+def run(selfl, img_fn=None, grid_file=None):
     global self
     self = selfl
 
-    #self.img_original= cv.LoadImage(image_fn, iscolor=cv.CV_LOAD_IMAGE_GRAYSCALE)
-    #self.img_original= cv.LoadImage(image_fn, iscolor=cv.CV_LOAD_IMAGE_COLOR)
-    self.img_original = cv.LoadImage(image_fn)
+    self.img_fn = img_fn
+    grid_json = None
+    if grid_file:
+        with open(grid_file, 'rb') as gridfile:
+            grid_json = json.load(gridfile)
+        if self.img_fn is None:
+            self.img_fn = grid_json.get('img_fn')
+        if self.group_cols is None:
+            self.group_cols = grid_json.get('group_cols')
+            self.group_rows = grid_json.get('group_rows')
+    else:
+        # Then need critical args
+        if not self.img_fn:
+            raise Exception("Filename required")
+        if not self.group_cols:
+            raise Exception("cols required")
+        if not self.group_rows:
+            raise Exception("rows required")
+
+    if self.img_fn is None:
+        raise Exception("Image required")
+
+    #self.img_original= cv.LoadImage(img_fn, iscolor=cv.CV_LOAD_IMAGE_GRAYSCALE)
+    #self.img_original= cv.LoadImage(img_fn, iscolor=cv.CV_LOAD_IMAGE_COLOR)
+    self.img_original = cv.LoadImage(self.img_fn)
     print 'Image is %dx%d' % (self.img_original.width, self.img_original.height)
 
-    self.basename = image_fn[:image_fn.find('.')]
+    self.basename = self.img_fn[:self.img_fn.find('.')]
 
     # image buffers
     self.img_target = cv.CreateImage(cv.GetSize(self.img_original), cv.IPL_DEPTH_8U, 3)
@@ -388,14 +410,14 @@ def run(selfl, image_fn, grid_file):
         thickness=1,
         lineType=8)
 
-    self.title = "rompar %s" % image_fn
+    self.title = "rompar %s" % img_fn
     cv.NamedWindow(self.title, 1)
     cv.SetMouseCallback(self.title, on_mouse, self)
 
     self.img_target = cv.CloneImage(self.img_original)
 
-    if grid_file:
-        load_grid(self, grid_file)
+    if grid_json:
+        load_grid(self, grid_json)
 
     cmd_help()
     cmd_help2()
