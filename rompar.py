@@ -36,10 +36,10 @@ def main():
     parser.add_argument('--dilate', type=str, help='Dilation')
     parser.add_argument('--erode', type=str, help='Erosion')
     parser.add_argument('--debug', action='store_true', help='')
-    parser.add_argument('image', help='Input image')
-    parser.add_argument('cols_per_group', type=int, help='')
-    parser.add_argument('rows_per_group', type=int, help='')
-    parser.add_argument('grid_file', nargs='?', help='Load saved grid file')
+    parser.add_argument('--load', help='Load saved grid file')
+    parser.add_argument('image', nargs='?', help='Input image')
+    parser.add_argument('cols_per_group', nargs='?', type=int, help='')
+    parser.add_argument('rows_per_group', nargs='?', type=int, help='')
     args = parser.parse_args()
 
     self = Rompar()
@@ -58,7 +58,7 @@ def main():
     if args.erode:
         self.config.erode = int(args.erode, 0)
 
-    run(self, args.image, grid_file=args.grid_file)
+    run(self, args.image, grid_file=args.load)
 
 if __name__ == "__main__":
     main()

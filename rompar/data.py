@@ -201,6 +201,7 @@ def save_grid(self, fn=None):
         'group_cols': self.group_cols,
         'group_rows': self.group_rows,
         'config': config,
+        'img_fn': self.img_fn,
         }
 
     if self.basename:
@@ -211,12 +212,9 @@ def save_grid(self, fn=None):
     json.dump(j, gridout, indent=4, sort_keys=True)
     print 'Saved %s' % fn
 
-def load_grid(self, grid_file=None, grid_json=None, gui=True):
+def load_grid(self, grid_json=None, gui=True):
     self.gui = gui
 
-    if not grid_json:
-        with open(grid_file, 'rb') as gridfile:
-            grid_json = json.load(gridfile)
     self.grid_intersections = grid_json['grid_intersections']
     data = grid_json['data']
     self.grid_points_x = grid_json['grid_points_x']

@@ -29,7 +29,7 @@ K_DOWN = 65362
 K_LEFT = 65361
 K_UP = 65364
 
-self = None
+#self = None
 
 def on_mouse_left(img_x, img_y, flags, param):
     self = param
@@ -155,6 +155,8 @@ def on_mouse_right(img_x, img_y, flags, param):
 
 # mouse events
 def on_mouse(event, mouse_x, mouse_y, flags, param):
+    self = param
+
     img_x = mouse_x + self.config.view.x
     img_y = mouse_y + self.config.view.y
 
