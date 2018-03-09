@@ -22,8 +22,7 @@
 
 import cv2.cv as cv
 
-from rompar.config import Rompar
-from rompar.cmd import run
+from rompar.rompar import Rompar
 
 def main():
     import argparse
@@ -42,23 +41,23 @@ def main():
     parser.add_argument('rows_per_group', nargs='?', type=int, help='')
     args = parser.parse_args()
 
-    self = Rompar()
-    self.debug = args.debug
-    self.group_cols = args.cols_per_group
-    self.group_rows = args.rows_per_group
+    romp = Rompar()
+    romp.debug = args.debug
+    romp.group_cols = args.cols_per_group
+    romp.group_rows = args.rows_per_group
     if args.radius:
-        self.config.default_radius = args.radius
-        self.config.radius = args.radius
+        romp.config.default_radius = args.radius
+        romp.config.radius = args.radius
     if args.bit_thresh_div:
-        self.config.bit_thresh_div = int(args.bit_thresh_div, 0)
+        romp.config.bit_thresh_div = int(args.bit_thresh_div, 0)
     if args.pix_thresh:
-        self.config.pix_thresh_min = int(args.pix_thresh, 0)
+        romp.config.pix_thresh_min = int(args.pix_thresh, 0)
     if args.dilate:
-        self.config.dilate = int(args.dilate, 0)
+        romp.config.dilate = int(args.dilate, 0)
     if args.erode:
-        self.config.erode = int(args.erode, 0)
+        romp.config.erode = int(args.erode, 0)
 
-    run(self, args.image, grid_file=args.load)
+    romp.run(args.image, grid_file=args.load)
 
 if __name__ == "__main__":
     main()
