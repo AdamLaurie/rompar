@@ -20,8 +20,7 @@
 
 import subprocess
 import sys
-import cv2.cv as cv
-import traceback
+
 
 def screen_wh():
     cmd = ['xrandr']

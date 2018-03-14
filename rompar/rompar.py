@@ -1,6 +1,7 @@
 import subprocess
 import sys
 import cv2.cv as cv
+import cv2
 import traceback
 import json
 
@@ -12,7 +13,6 @@ K_DOWN = 65362
 K_LEFT = 65361
 K_UP = 65364
 
-#self = None
 
 def symlinka(target, alias):
     '''Atomic symlink'''
@@ -158,7 +158,7 @@ class Rompar(object):
         sys.stdout.write('> ')
         sys.stdout.flush()
         # keystroke processing
-        ki = cv.WaitKey(0)
+        ki = cv2.waitKey(0)
 
         # Simple character value, if applicable
         kc = None
@@ -241,7 +241,7 @@ class Rompar(object):
             lineType=8)
 
         self.title = "rompar %s" % img_fn
-        cv.NamedWindow(self.title, 1)
+        cv2.namedWindow(self.title, 1)
         cv.SetMouseCallback(self.title, self.on_mouse, None)
 
         self.img_target = cv.CloneImage(self.img_original)
@@ -444,7 +444,7 @@ class Rompar(object):
         sys.stdout.flush()
         shx = ''
         while 42:
-            c = cv.WaitKey(0)
+            c = cv2.waitKey(0)
             # BS or DEL
             if c == 65288 or c == 65535 or k == 65439:
                 c = 0x08
@@ -736,7 +736,7 @@ class Rompar(object):
                 self.config.radius = int(self.step_y / 3)
 
     # mouse events
-    def on_mouse(self, event, mouse_x, mouse_y, flags):
+    def on_mouse(self, event, mouse_x, mouse_y, flags, param):
         img_x = mouse_x + self.config.view.x
         img_y = mouse_y + self.config.view.y
 
