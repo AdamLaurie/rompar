@@ -106,7 +106,7 @@ class Rompar(object):
             # Some past DBs had corrupt sets with duplicates
             # Maybe better to just trust them though
             self.grid_points_x = []
-            self.grid_points_y = []K_RIGHT
+            self.grid_points_y = []
             for x, y in self.grid_intersections:
                 try:
                     self.grid_points_x.index(x)
