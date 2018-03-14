@@ -19,7 +19,6 @@
 #    GNU General Public License for more details.
 
 import subprocess
-
 import sys
 import cv2.cv as cv
 import traceback
@@ -36,6 +35,7 @@ def screen_wh():
     width, height = resolution.split('x')
     return int(width), int(height)
 
+
 class View(object):
     def __init__(self):
         # Display objects
@@ -49,6 +49,7 @@ class View(object):
         # Step increment
         self.incx = screenw // 3
         self.incy = screenh // 3
+        
 
 class Config(object):
     def __init__(self):

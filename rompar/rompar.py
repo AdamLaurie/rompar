@@ -1,5 +1,4 @@
 import subprocess
-
 import sys
 import cv2.cv as cv
 import traceback
@@ -23,9 +22,11 @@ def symlinka(target, alias):
     os.symlink(target, alias + '_')
     os.rename(tmp, alias)
 
+
 # create binary printable string
 def to_bin(x):
     return ''.join(x & (1 << i) and '1' or '0' for i in range(7, -1, -1))
+
 
 class Rompar(object):
     def __init__(self):
@@ -84,6 +85,7 @@ class Rompar(object):
         self.basename = None
 
         self.config = Config()
+
     def load_grid(self, grid_json=None, gui=True):
         self.gui = gui
 
@@ -104,7 +106,7 @@ class Rompar(object):
             # Some past DBs had corrupt sets with duplicates
             # Maybe better to just trust them though
             self.grid_points_x = []
-            self.grid_points_y = []
+            self.grid_points_y = []K_RIGHT
             for x, y in self.grid_intersections:
                 try:
                     self.grid_points_x.index(x)
@@ -186,9 +188,7 @@ class Rompar(object):
             return
         self.on_key(k)
 
-
     def run(self, img_fn=None, grid_file=None):
-
         self.img_fn = img_fn
         grid_json = None
         if grid_file:
@@ -263,7 +263,6 @@ class Rompar(object):
                 traceback.print_exc()
 
         print 'Exiting'
-
 
     def on_key(self, k):
         if k == 65288 and self.Edit_x >= 0:
@@ -410,7 +409,7 @@ class Rompar(object):
             print 'display peephole:', self.config.img_display_peephole
         elif k == 'r':
             print 'reading %d points...' % len(self.grid_intersections)
-            read_data(self, force=True)
+            self.read_data(force=True)
         elif k == 'R':
             self.redraw_grid()
             self.data_read = False
@@ -606,7 +605,6 @@ class Rompar(object):
     def get_pixel(self, x, y):
         return self.img_target[x, y][0] + self.img_target[x, y][1] + self.img_target[x, y][2]
 
-
     def next_save(self):
         '''Look for next unused save slot by checking grid files'''
         while True:
@@ -739,7 +737,6 @@ class Rompar(object):
 
     # mouse events
     def on_mouse(self, event, mouse_x, mouse_y, flags):
-
         img_x = mouse_x + self.config.view.x
         img_y = mouse_y + self.config.view.y
 
@@ -751,7 +748,6 @@ class Rompar(object):
             self.on_mouse_right(img_x, img_y, flags)
 
     def on_mouse_left(self, img_x, img_y, flags):
-
         # Edit data
         if self.data_read:
             # find nearest intersection and toggle its value
@@ -759,7 +755,7 @@ class Rompar(object):
                 if img_x >= x - self.config.radius / 2 and img_x <= x + self.config.radius / 2:
                     for y in self.grid_points_y:
                         if img_y >= y - self.config.radius / 2 and img_y <= y + self.config.radius / 2:
-                            value = toggle_data(self, x, y)
+                            value = self.toggle_data(x, y)
                             #print self.img_target[x, y]
                             #print 'value', value
                             if value == '0':
@@ -779,8 +775,7 @@ class Rompar(object):
         # Edit grid
         else:
             #if not Target[img_y, img_x]:
-            if flags != cv.CV_EVENT_FLAG_SHIFTKEY and not get_pixel(self,
-                    img_y, img_x):
+            if flags != cv.CV_EVENT_FLAG_SHIFTKEY and not self.get_pixel(img_y, img_x):
                 print 'autocenter: miss!'
                 return
 
@@ -812,7 +807,6 @@ class Rompar(object):
                     self.draw_line(draw_x, img_y, 'V', True)
 
     def on_mouse_right(self, img_x, img_y, flags):
-
         # Edit data
         if self.data_read:
             # find row and select for editing
@@ -836,8 +830,7 @@ class Rompar(object):
                         return
         # Edit grid
         else:
-            if flags != cv.CV_EVENT_FLAG_SHIFTKEY and not get_pixel(self,
-                    img_y, img_x):
+            if flags != cv.CV_EVENT_FLAG_SHIFTKEY and not self.get_pixel(img_y, img_x):
                 print 'autocenter: miss!'
                 return
             if img_y in self.grid_points_y:
@@ -897,17 +890,17 @@ class Rompar(object):
         Auto center image global x/y coordinate on contiguous pixel x/y runs
         '''
         x_min = x
-        while get_pixel(self, y, x_min) != 0.0:
+        while self.get_pixel(y, x_min) != 0.0:
             x_min -= 1
         x_max = x
-        while get_pixel(self, y, x_max) != 0.0:
+        while self.get_pixel(y, x_max) != 0.0:
             x_max += 1
         x = x_min + ((x_max - x_min) / 2)
         y_min = y
-        while get_pixel(self, y_min, x) != 0.0:
+        while self.get_pixel(y_min, x) != 0.0:
             y_min -= 1
         y_max = y
-        while get_pixel(self, y_max, x) != 0.0:
+        while self.get_pixel(y_max, x) != 0.0:
             y_max += 1
         y = y_min + ((y_max - y_min) / 2)
         return x, y
