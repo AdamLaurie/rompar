@@ -4,6 +4,7 @@ import cv2.cv as cv
 import cv2
 import traceback
 import json
+import numpy
 
 from config import *
 from cmd_help import *
@@ -155,6 +156,19 @@ class Rompar(object):
             cv.Erode(self.img_target, self.img_target, iterations=self.config.erode)
         self.show_image()
 
+        #new image processing bit
+
+        cv2.dilate(self.img_target_new, (3,3))
+
+        if self.config.threshold:
+            cv2.threshold(self.img_original_new, self.config.pix_thresh_min, 0xff, cv2.THRESH_BINARY, self.img_target_new)
+            cv2.bitwise_and(self.img_target_new, self.img_mask_new, self.img_target_new)
+        if self.config.dilate:
+            cv2.dilate(self.img_target_new, (3,3))
+        if self.config.erode:
+            cv2.erode(self.img_target_new, (3,3))
+        self.show_image()
+
         sys.stdout.write('> ')
         sys.stdout.flush()
         # keystroke processing
@@ -216,6 +230,13 @@ class Rompar(object):
         self.img_original = cv.LoadImage(self.img_fn)
         print 'Image is %dx%d' % (self.img_original.width, self.img_original.height)
 
+
+        #testing ground for new cv version
+        #load img as numpy ndarray dimensions (height, width, channels)
+        self.img_original_new = cv2.imread(self.img_fn, cv2.CV_LOAD_IMAGE_COLOR)
+        print 'Image is %dx%d' % (self.img_original_new.shape[1], self.img_original_new.shape[0])
+
+
         self.basename = self.img_fn[:self.img_fn.find('.')]
 
         # image buffers
@@ -231,7 +252,21 @@ class Rompar(object):
         self.img_hex = cv.CreateImage(cv.GetSize(self.img_original), cv.IPL_DEPTH_8U, 3)
         cv.Set(self.img_hex, cv.Scalar(0, 0, 0))
 
+
+        # new cv image buffers
+        self.img_target_new = numpy.zeros(self.img_original_new.shape, numpy.uint8)
+        self.img_grid_new = numpy.zeros(self.img_original_new.shape, numpy.uint8)
+        self.img_mask_new = numpy.ndarray(self.img_original_new.shape, numpy.uint8)
+        self.img_mask_new[:] = (0, 0, 255)
+        self.img_peephole_new = numpy.zeros(self.img_original_new.shape, numpy.uint8)
+        self.img_display_new = numpy.zeros(self.img_original_new.shape, numpy.uint8)
+        self.img_blank_new = numpy.zeros(self.img_original_new.shape, numpy.uint8)
+        self.img_hex_new = numpy.zeros(self.img_original_new.shape, numpy.uint8)
+
+
         self.config.font_size = 1.0
+        # i think i need this
+        self.config.font_size_new = 1.0
         self.font = cv.InitFont(
             cv.CV_FONT_HERSHEY_SIMPLEX,
             hscale=self.config.font_size,
@@ -242,9 +277,11 @@ class Rompar(object):
 
         self.title = "rompar %s" % img_fn
         cv2.namedWindow(self.title, 1)
-        cv.SetMouseCallback(self.title, self.on_mouse, None)
+        cv2.setMouseCallback(self.title, self.on_mouse, None)
 
         self.img_target = cv.CloneImage(self.img_original)
+        # new version
+        self.img_target_new = numpy.copy(self.img_original_new)
 
         if grid_json:
             self.load_grid(grid_json)
@@ -369,6 +406,10 @@ class Rompar(object):
                     thickness=1,
                     lineType=8)
             print 'Font size: %d' % self.config.font_size
+            #new font
+            if self.config.font_size_new > 0.1:
+                self.config.font_size_new -= 0.1
+            print 'Font size: %d' % self.config.font_size_new
         elif k == 'F':
             self.config.font_size += 0.1
             self.font = cv.InitFont(
@@ -379,6 +420,9 @@ class Rompar(object):
                 thickness=1,
                 lineType=8)
             print 'Font size: %d' % self.config.font_size
+            #new font
+            self.config.font_size_new += 0.1
+            print 'Font size: %d' % self.config.font_size_new
         elif k == 'g':
             self.config.img_display_grid = not self.config.img_display_grid
             print 'Display grid:', self.config.img_display_grid
@@ -528,7 +572,12 @@ class Rompar(object):
         if not self.gui:
             return
         cv.Set(self.img_grid, cv.Scalar(0, 0, 0))
+        #new
+        self.img_grid_new.fill(0)
         cv.Set(self.img_peephole, cv.Scalar(0, 0, 0))
+        #New
+        self.img_peephole_new.fill(0)
+
         self.grid_intersections = []
         self.grid_points_x.sort()
         self.grid_points_y.sort()
@@ -536,22 +585,40 @@ class Rompar(object):
         for x in self.grid_points_x:
             cv.Line(self.img_grid, (x, 0), (x, self.img_target.height), cv.Scalar(0xff, 0x00, 0x00),
                     1)
+            #new
+            cv2.line(self.img_grid_new, (x, 0), (x, self.img_target.height), (0xff, 0x00, 0x00),
+                    1)
             for y in self.grid_points_y:
                 self.grid_intersections.append((x, y))
         self.grid_intersections.sort()
         for y in self.grid_points_y:
             cv.Line(self.img_grid, (0, y), (self.img_target.width, y), cv.Scalar(0xff, 0x00, 0x00),
                     1)
+            #new
+            cv2.line(self.img_grid_new, (0, y), (self.img_target.width, y), (0xff, 0x00, 0x00),
+                    1)
         for x, y in self.grid_intersections:
             cv.Circle(
                 self.img_grid, (x, y), self.config.radius, cv.Scalar(0x00, 0x00, 0x00), thickness=-1)
+            #new
+            cv2.circle(
+                self.img_grid_new, (x, y), self.config.radius, (0x00, 0x00, 0x00), -1)
             cv.Circle(
                 self.img_grid, (x, y), self.config.radius, cv.Scalar(0xff, 0x00, 0x00), thickness=1)
+            #new
+            cv2.circle(
+                self.img_grid_new, (x, y), self.config.radius, (0xff, 0x00, 0x00), 1)
             cv.Circle(
                 self.img_peephole, (x, y),
                 self.config.radius + 1,
                 cv.Scalar(0xff, 0xff, 0xff),
                 thickness=-1)
+            #new
+            cv2.circle(
+                self.img_peephole_new, (x, y),
+                self.config.radius + 1,
+                (0xff, 0xff, 0xff),
+                -1)
 
     def read_data(self, data_ref=None, force=False):
         if not force and not self.data_read:
@@ -588,6 +655,9 @@ class Rompar(object):
             if self.data[i] == '1':
                 cv.Circle(
                     self.img_grid, (x, y), self.config.radius, cv.Scalar(0x00, 0xff, 0x00), thickness=2)
+                #new
+                cv2.circle(
+                    self.img_grid_new, (x, y), self.config.radius, (0x00, 0xff, 0x00), 2)
                 # highlight if we're in edit mode
                 if y == self.Edit_y:
                     sx = self.Edit_x - (self.Edit_x % self.group_cols)
@@ -598,6 +668,12 @@ class Rompar(object):
                             self.config.radius,
                             cv.Scalar(0xff, 0xff, 0xff),
                             thickness=2)
+                        #new
+                        cv2.circle(
+                            self.img_grid_new, (x, y),
+                            self.config.radius,
+                            (0xff, 0xff, 0xff),
+                            2)
             else:
                 pass
         self.data_read = True
@@ -681,6 +757,10 @@ class Rompar(object):
         #imgh = self.img_target.rows
         #imgw, imgh, _channels = self.img_target.shape
         imgw, imgh = cv.GetSize(self.img_target)
+        #New
+        imgw = self.img_target_new.shape[1]
+        imgh = self.img_target_new.shape[0]
+
         self.config.view.x = min(max(0, self.config.view.x + x), imgw - self.config.view.w)
         self.config.view.y = min(max(0, self.config.view.y + y), imgh - self.config.view.h)
 
@@ -747,6 +827,12 @@ class Rompar(object):
         elif event == cv.CV_EVENT_RBUTTONDOWN:
             self.on_mouse_right(img_x, img_y, flags)
 
+        #new
+        if event == cv2.EVENT_LBUTTONDOWN:
+            self.on_mouse_left(img_x, img_y, flags)
+        if event == cv2.EVENT_RBUTTONDOWN:
+            self.on_mouse_right(img_x, img_y, flags)
+
     def on_mouse_left(self, img_x, img_y, flags):
         # Edit data
         if self.data_read:
@@ -764,12 +850,24 @@ class Rompar(object):
                                     self.config.radius,
                                     cv.Scalar(0xff, 0x00, 0x00),
                                     thickness=2)
+                                #new
+                                cv2.circle(
+                                    self.img_grid_new, (x, y),
+                                    self.config.radius,
+                                    (0xff, 0x00, 0x00),
+                                    2)
                             else:
                                 cv.Circle(
                                     self.img_grid, (x, y),
                                     self.config.radius,
                                     cv.Scalar(0x00, 0xff, 0x00),
                                     thickness=2)
+                                #new
+                                cv2.circle(
+                                    self.img_grid_new, (x, y),
+                                    self.config.radius,
+                                    (0x00, 0xff, 0x00),
+                                    2)
 
                             self.show_image()
         # Edit grid
@@ -778,12 +876,19 @@ class Rompar(object):
             if flags != cv.CV_EVENT_FLAG_SHIFTKEY and not self.get_pixel(img_y, img_x):
                 print 'autocenter: miss!'
                 return
+            #New
+            if flags != cv2.EVENT_FLAG_SHIFTKEY and not self.get_pixel(img_y, img_x):
+                print 'autocenter: miss!'
+                return
 
             if img_x in self.grid_points_x:
                 return
             # only draw a single line if this is the first one
             if len(self.grid_points_x) == 0 or self.group_cols == 1:
                 if flags != cv.CV_EVENT_FLAG_SHIFTKEY:
+                    img_x, img_y = self.auto_center(img_x, img_y)
+                #new
+                if flags != cv2.EVENT_FLAG_SHIFTKEY:
                     img_x, img_y = self.auto_center(img_x, img_y)
 
                 # don't try to auto-center if shift key pressed
@@ -833,11 +938,19 @@ class Rompar(object):
             if flags != cv.CV_EVENT_FLAG_SHIFTKEY and not self.get_pixel(img_y, img_x):
                 print 'autocenter: miss!'
                 return
+            #new
+            if flags != cv2.EVENT_FLAG_SHIFTKEY and not self.get_pixel(img_y, img_x):
+                print 'autocenter: miss!'
+                return
+
             if img_y in self.grid_points_y:
                 return
             # only draw a single line if this is the first one
             if len(self.grid_points_y) == 0 or self.group_rows == 1:
                 if flags != cv.CV_EVENT_FLAG_SHIFTKEY:
+                    img_x, img_y = self.auto_center(img_x, img_y)
+                #new
+                if flags != cv2.EVENT_FLAG_SHIFTKEY:
                     img_x, img_y = self.auto_center(img_x, img_y)
 
                 self.draw_line(img_x, img_y, 'H', False)
@@ -865,25 +978,39 @@ class Rompar(object):
     def show_image(self):
         if self.config.img_display_original:
             self.img_display = cv.CloneImage(self.img_original)
+            #new
+            self.img_display_new = numpy.copy(self.img_original_new)
         else:
             self.img_display = cv.CloneImage(self.img_target)
-
+            #New
+            self.img_display_new = numpy.copy(self.img_target_new)
         if self.config.img_display_blank_image:
             self.img_display = cv.CloneImage(self.img_blank)
+            #new
+            self.img_display_new = numpy.copy(self.img_blank_new)
 
         if self.config.img_display_grid:
             cv.Or(self.img_display, self.img_grid, self.img_display)
+            #new
+            cv2.bitwise_or(self.img_display_new, self.img_grid_new, self.img_display_new)
 
         if self.config.img_display_peephole:
             cv.And(self.img_display, self.img_peephole, self.img_display)
+            #new
+            cv2.bitwise_and(self.img_display_new, self.img_peephole_new, self.img_display_new)
 
         if self.config.img_display_data:
             self.show_data()
             cv.Or(self.img_display, self.img_hex, self.img_display)
+            #new
+            cv.bitwise_or(self.img_display_new, self.img_hex_new, self.img_display_new)
 
         self.img_display_viewport = self.img_display[self.config.view.y:self.config.view.y+self.config.view.h,
                                                      self.config.view.x:self.config.view.x+self.config.view.w]
-        cv.ShowImage(self.title, self.img_display_viewport)
+        #cv.ShowImage(self.title, self.img_display_viewport)
+        #New
+        self.img_display_viewport_new = self.img_display_new
+        cv2.imshow(self.title, self.img_display_viewport_new)
 
     def auto_center(self, x, y):
         '''
@@ -913,6 +1040,9 @@ class Rompar(object):
             print 'Draw H line', (0, y), (self.img_target.width, y)
             cv.Line(self.img_grid, (0, y), (self.img_target.width, y), cv.Scalar(0xff, 0x00, 0x00),
                     1)
+            #new
+            cv2.line(self.img_grid_new, (0, y), (self.img_target.width, y), (0xff, 0x00, 0x00),
+                    1)
             for gridx in self.grid_points_x:
                 print '*****self.grid_points_x circle', (gridx, y), self.config.radius
                 cv.Circle(
@@ -920,11 +1050,22 @@ class Rompar(object):
                     self.config.radius,
                     cv.Scalar(0x00, 0x00, 0x00),
                     thickness=-1)
+                #new
+                cv2.circle(
+                    self.img_grid_new, (gridx, y),
+                    self.config.radius,
+                    (0, 0, 0),
+                    -1)
                 cv.Circle(self.img_grid, (gridx, y), self.config.radius, cv.Scalar(0xff, 0x00, 0x00))
+                #new
+                cv2.circle(self.img_grid_new, (gridx, y), self.config.radius, (0xff, 0x00, 0x00))
                 if intersections:
                     self.grid_intersections.append((gridx, y))
         else:
             cv.Line(self.img_grid, (x, 0), (x, self.img_target.height), cv.Scalar(0xff, 0x00, 0x00),
+                    1)
+            #new
+            cv2.line(self.img_grid_new, (x, 0), (x, self.img_target.height), (0xff, 0x00, 0x00),
                     1)
             for gridy in self.grid_points_y:
                 cv.Circle(
@@ -932,7 +1073,15 @@ class Rompar(object):
                     self.config.radius,
                     cv.Scalar(0x00, 0x00, 0x00),
                     thickness=-1)
+                #New
+                cv2.circle(
+                    self.img_grid_new, (x, gridy),
+                    self.config.radius,
+                    (0x00, 0x00, 0x00),
+                    -1)
                 cv.Circle(self.img_grid, (x, gridy), self.config.radius, cv.Scalar(0xff, 0x00, 0x00))
+                #new
+                cv2.circle(self.img_grid_new, (x, gridy), self.config.radius, (0xff, 0x00, 0x00))
                 if intersections:
                     self.grid_intersections.append((x, gridy))
         self.show_image()
@@ -943,6 +1092,8 @@ class Rompar(object):
             return
 
         cv.Set(self.img_hex, cv.Scalar(0, 0, 0))
+        #New
+        self.img_hex_new.fill(0)
         print
         dat = self.get_all_data()
         for row in range(len(self.grid_points_y)):
@@ -959,15 +1110,22 @@ class Rompar(object):
                     disp_data = hexbyte
                 if self.config.img_display_data:
                     if self.Search_HEX and self.Search_HEX.count(thisbyte):
-                        cv.PutText(self.img_hex, disp_data,
-                                   (self.grid_points_x[column * self.group_cols],
-                                    self.grid_points_y[row] + self.config.radius / 2 + 1), self.font,
-                                   cv.Scalar(0x00, 0xff, 0xff))
+                        textcolor = cv.Scalar(0x00, 0xff, 0xff)
                     else:
-                        cv.PutText(self.img_hex, disp_data,
-                                   (self.grid_points_x[column * self.group_cols],
-                                    self.grid_points_y[row] + self.config.radius / 2 + 1), self.font,
-                                   cv.Scalar(0xff, 0xff, 0xff))
+                        textcolor = cv.Scalar(0xff, 0xff, 0xff)
+
+                    cv.PutText(self.img_hex, disp_data,
+                        (self.grid_points_x[column * self.group_cols],
+                        self.grid_points_y[row] + self.config.radius / 2 + 1), self.font,
+                        textcolor)
+                    #new PutText
+                    cv2.putText(self.img_hex_new,
+                                disp_data,
+                                (self.grid_points_x[column * self.group_cols],
+                                self.grid_points_y[row] + self.config.radius / 2 + 1),
+                                cv2.FONT_HERSHEY_SIMPLEX,
+                                self.config.font_size_new,
+                                textcolor)
             #print outbin
             #print
             #print out
