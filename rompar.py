@@ -20,8 +20,6 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-import cv2.cv as cv
-
 from rompar.rompar import Rompar
 
 def main():
