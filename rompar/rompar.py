@@ -1,3 +1,4 @@
+from __future__ import print_function
 import subprocess
 import sys
 import cv2
@@ -5,8 +6,8 @@ import traceback
 import json
 import numpy
 
-from config import *
-from cmd_help import *
+from .config import *
+from .cmd_help import *
 
 K_RIGHT = 65363
 K_DOWN = 65362
@@ -94,9 +95,9 @@ class Rompar(object):
         self.grid_points_x = grid_json['grid_points_x']
         self.grid_points_y = grid_json['grid_points_y']
         # self.config = grid_json['config']
-        for k, v in grid_json['config'].iteritems():
+        for k, v in grid_json['config'].items():
             if k == 'view':
-                for kv, vv in v.iteritems():
+                for kv, vv in v.items():
                     self.config.view.__dict__[kv] = vv
             else:
                 self.config.__dict__[k] = v
@@ -118,11 +119,11 @@ class Rompar(object):
                 except:
                     self.grid_points_y.append(y)
 
-        print 'Grid points: %d x, %d y' % (len(self.grid_points_x), len(self.grid_points_y))
+        print ('Grid points: %d x, %d y' % (len(self.grid_points_x), len(self.grid_points_y)))
         squared = len(self.grid_points_x) * len(self.grid_points_y)
         if len(self.grid_intersections) != squared:
-            print self.grid_points_x
-            print self.grid_points_y
+            print (self.grid_points_x)
+            print (self.grid_points_y)
             raise Exception("%d != %d" % (len(self.grid_intersections), squared))
 
         self.step_x = 0.0
@@ -139,14 +140,13 @@ class Rompar(object):
         self.redraw_grid()
 
         if data:
-            print 'Initializing data'
+            print ('Initializing data')
             if len(data) != len(self.grid_intersections):
                 raise Exception("%d != %d" % (len(data), len(self.grid_intersections)))
             self.read_data(data_ref=data, force=True)
 
     def do_loop(self):
         # image processing
-        #new image processing bit
         cv2.dilate(self.img_target, (3,3))
 
         if self.config.threshold:
@@ -179,14 +179,14 @@ class Rompar(object):
                 k = kc
 
         if kc:
-            print '%d (%s)\n' % (ki, kc)
+            print ('%d (%s)\n' % (ki, kc))
         else:
-            print '%d\n' % ki
+            print ('%d\n' % ki)
 
         if ki > 66000:
             return
         if ki < 0:
-            print "Exiting on closed window"
+            print ("Exiting on closed window")
             self.running = False
             return
         self.on_key(k)
@@ -217,7 +217,7 @@ class Rompar(object):
         #testing ground for new cv version
         #load img as numpy ndarray dimensions (height, width, channels)
         self.img_original = cv2.imread(self.img_fn, cv2.IMREAD_COLOR)
-        print 'Image is %dx%d' % (self.img_original.shape[1], self.img_original.shape[0])
+        print ('Image is %dx%d' % (self.img_original.shape[1], self.img_original.shape[0]))
 
 
         self.basename = self.img_fn[:self.img_fn.find('.')]
@@ -255,15 +255,15 @@ class Rompar(object):
             except Exception:
                 if self.debug:
                     raise
-                print 'WARNING: exception'
+                print ('WARNING: exception')
                 traceback.print_exc()
 
-        print 'Exiting'
+        print ('Exiting')
 
     def on_key(self, k):
         if k == 65288 and self.Edit_x >= 0:
             # BS
-            print 'deleting column'
+            print ('deleting column')
             self.grid_points_x.remove(self.grid_points_x[self.Edit_x])
             self.Edit_x = -1
             self.read_data()
@@ -278,26 +278,26 @@ class Rompar(object):
             '''
         elif k == K_UP and self.Edit_y >= 0:
             # up arrow
-            print 'editing line', self.Edit_y
+            print ('editing line', self.Edit_y)
             self.grid_points_y[self.grid_points_y.index(self.Edit_y)] -= 1
             self.Edit_y -= 1
             self.read_data()
         elif k == K_DOWN and self.Edit_y >= 0:
             # down arrow
-            print 'editing line', self.Edit_y
+            print ('editing line', self.Edit_y)
             self.grid_points_y[self.grid_points_y.index(self.Edit_y)] += 1
             self.Edit_y += 1
             self.read_data()
         elif k == K_RIGHT and self.Edit_x >= 0:
             # right arrow - edit entrie column group
-            print 'editing column', self.Edit_x
+            print ('editing column', self.Edit_x)
             sx = self.Edit_x - (self.Edit_x % self.group_cols)
             for x in range(sx, sx + self.group_cols):
                 self.grid_points_x[x] += 1
             self.read_data()
         elif k == K_LEFT and self.Edit_x >= 0:
             # left arrow
-            print 'editing column', self.Edit_x
+            print ('editing column', self.Edit_x)
             sx = self.Edit_x - (self.Edit_x % self.group_cols)
             for x in range(sx, sx + self.group_cols):
                 self.grid_points_x[x] -= 1
@@ -305,17 +305,17 @@ class Rompar(object):
             '''
         elif k == 65432 and self.Edit_x >= 0:
             # right arrow on numpad - edit single column
-            print 'editing column', self.Edit_x
+            print ('editing column', self.Edit_x)
             self.grid_points_x[self.Edit_x] += 1
             self.read_data()
         elif k == 65430 and self.Edit_x >= 0:
             # left arrow on numpad - edit single column
-            print 'editing column', self.Edit_x
+            print ('editing column', self.Edit_x)
             self.grid_points_x[self.Edit_x] -= 1
             self.read_data()
         elif (k == 65439 or k == 65535) and self.Edit_y >= 0:
             # delete
-            print 'deleting row', self.Edit_y
+            print ('deleting row', self.Edit_y)
             self.grid_points_y.remove(self.Edit_y)
             self.Edit_y = -1
             self.read_data()
@@ -323,106 +323,106 @@ class Rompar(object):
             # enter
             self.Edit_x = -1
             self.Edit_y = -1
-            print 'Done editing'
+            print ('Done editing')
             self.read_data()
         elif k == 'a':
             if self.config.radius:
                 self.config.radius -= 1
                 self.read_data()
-            print 'Radius: %d' % self.config.radius
+            print ('Radius: %d' % self.config.radius)
         elif k == 'A':
             self.config.radius += 1
             self.read_data()
-            print 'Radius: %d' % self.config.radius
+            print ('Radius: %d' % self.config.radius)
         elif k == 'b':
             self.config.img_display_blank_image = not self.config.img_display_blank_image
         elif k == 'c':
             self.print_config()
         elif k == 'd':
             self.config.dilate = max(self.config.dilate - 1, 0)
-            print 'Dilate: %d' % self.config.dilate
+            print ('Dilate: %d' % self.config.dilate)
             self.read_data()
         elif k == 'D':
             self.config.dilate += 1
-            print 'Dilate: %d' % self.config.dilate
+            print ('Dilate: %d' % self.config.dilate)
             self.read_data()
         elif k == 'e':
             self.config.erode = max(self.config.erode - 1, 0)
-            print 'Erode: %d' % self.config.erode
+            print ('Erode: %d' % self.config.erode)
             self.read_data()
         elif k == 'E':
             self.config.erode += 1
-            print 'Erode: %d' % self.config.erode
+            print ('Erode: %d' % self.config.erode)
             self.read_data()
         elif k == 'f':
             if self.config.font_size > 0.1:
                 self.config.font_size -= 0.1
-            print 'Font size: %d' % self.config.font_size
+            print ('Font size: %d' % self.config.font_size)
         elif k == 'F':
             self.config.font_size += 0.1
-            print 'Font size: %d' % self.config.font_size
+            print ('Font size: %d' % self.config.font_size)
         elif k == 'g':
             self.config.img_display_grid = not self.config.img_display_grid
-            print 'Display grid:', self.config.img_display_grid
+            print ('Display grid:', self.config.img_display_grid)
         elif k == 'h' or k == '?':
             cmd_help()
         elif k == 'H':
             self.config.img_display_binary = not self.config.img_display_binary
-            print 'Display binary:', self.config.img_display_binary
+            print ('Display binary:', self.config.img_display_binary)
         elif k == 'i':
             self.inverted = not self.inverted
-            print 'Inverted:', self.inverted
+            print ('Inverted:', self.inverted)
         elif k == 'l':
             self.config.LSB_Mode = not self.config.LSB_Mode
-            print 'LSB self.data mode:', self.config.LSB_Mode
+            print ('LSB self.data mode:', self.config.LSB_Mode)
         elif k == 'm':
             self.config.bit_thresh_div -= 1
-            print 'thresh_div:', self.config.bit_thresh_div
+            print ('thresh_div:', self.config.bit_thresh_div)
             self.read_data()
         elif k == 'M':
             self.config.bit_thresh_div += 1
-            print 'thresh_div:', self.config.bit_thresh_div
+            print ('thresh_div:', self.config.bit_thresh_div)
             self.read_data()
         elif k == 'o':
             self.config.img_display_original = not self.config.img_display_original
-            print 'display original:', self.config.img_display_original
+            print ('display original:', self.config.img_display_original)
         elif k == 'p':
             self.config.img_display_peephole = not self.config.img_display_peephole
-            print 'display peephole:', self.config.img_display_peephole
+            print ('display peephole:', self.config.img_display_peephole)
         elif k == 'r':
-            print 'reading %d points...' % len(self.grid_intersections)
+            print ('reading %d points...' % len(self.grid_intersections))
             self.read_data(force=True)
         elif k == 'R':
             self.redraw_grid()
             self.data_read = False
         elif k == 's':
             self.config.img_display_data = not self.config.img_display_data
-            print 'show data:', self.config.img_display_data
+            print ('show data:', self.config.img_display_data)
         elif k == 'S':
             self.cmd_save()
         elif k == 'q':
-            print "Exiting on q"
+            print ("Exiting on q")
             self.running = False
         elif k == 't':
             self.config.threshold = True
-            print 'Threshold:', self.config.threshold
+            print ('Threshold:', self.config.threshold)
         elif k == '-':
             self.config.pix_thresh_min = max(self.config.pix_thresh_min - 1, 0x01)
-            print 'Threshold filter %02x' % self.config.pix_thresh_min
+            print ('Threshold filter %02x' % self.config.pix_thresh_min)
             if self.data_read:
                 self.read_data()
         elif k == '+':
             self.config.pix_thresh_min = min(self.config.pix_thresh_min + 1, 0xFF)
-            print 'Threshold filter %02x' % self.config.pix_thresh_min
+            print ('Threshold filter %02x' % self.config.pix_thresh_min)
             if self.data_read:
                 self.read_data()
         elif k == '/':
             self.cmd_find(k)
         #else:
-        #    print 'Unknown command %s' % k
+        #    print ('Unknown command %s' % k)
 
     def cmd_find(self, k):
-        print 'Enter space delimeted HEX (in image window), e.g. 10 A1 EF: ',
+        print ('Enter space delimeted HEX (in image window), e.g. 10 A1 EF: ',)
         sys.stdout.flush()
         shx = ''
         while 42:
@@ -435,7 +435,7 @@ class Rompar(object):
 
             # Newline
             if c == 0x0d or c == 0x0a:
-                print
+                print()
                 break
             # Backspace
             elif c == 0x08:
@@ -454,57 +454,57 @@ class Rompar(object):
         try:
             self.Search_HEX = [int(h, 16) for h in shx.strip().split(' ')]
         except ValueError:
-            print 'Invalid hex value'
+            print ('Invalid hex value')
             return
-        print 'searching for', shx.upper()
+        print ('searching for', shx.upper())
 
     def cmd_save(self):
-        print 'saving...'
+        print ('saving...')
 
         self.next_save()
         self.save_grid()
 
         if not self.data_read:
-            print 'No bits to save'
+            print ('No bits to save')
         else:
             if 0 and self.save_dat:
                 self.save_dat()
             self.save_txt()
 
     def print_config(self):
-        print 'Display'
-        print '  Grid      %s' % self.config.img_display_grid
-        print '  Original  %s' % self.config.img_display_original
-        print '  Peephole  %s' % self.config.img_display_peephole
-        print '  Data      %s' % self.config.img_display_data
-        print '    As binary %s' % self.config.img_display_binary
-        print 'Pixel processing'
-        print '  Bit threshold divisor   %s' % self.config.bit_thresh_div
-        print '  Pixel threshold minimum %s (0x%02X)' % (self.config.pix_thresh_min, self.config.pix_thresh_min)
-        print '  Dilate    %s' % self.config.dilate
-        print '  Erode     %s' % self.config.erode
-        print '  Radius    %s' % self.config.radius
-        print '  Threshold %s' % self.config.threshold
-        print '  Step'
-        print '    X       % 5.1f' % self.step_x
-        print '    X       % 5.1f' % self.step_y
-        print 'Bit state'
-        print '  Data read %d' % self.data_read
-        print '  Bits per group'
-        print '    X       %d cols' % self.group_cols
-        print '    Y       %d rows' % self.group_rows
-        print '  Bit points total'
-        print '    X       %d cols' % len(self.grid_points_x)
-        print '    Y       %d rows' % len(self.grid_points_y)
-        print '  Inverted  %d' % self.inverted
-        print '  Intersections %d' % len(self.grid_intersections)
-        print '  Viewport'
-        print '    X       %d' % self.config.view.x
-        print '    Y       %d' % self.config.view.y
-        print '    W       %d' % self.config.view.w
-        print '    H       %d' % self.config.view.h
-        print '    PanX    %d' % self.config.view.incx
-        print '    PanY    %d' % self.config.view.incy
+        print ('Display')
+        print ('  Grid      %s' % self.config.img_display_grid)
+        print ('  Original  %s' % self.config.img_display_original)
+        print ('  Peephole  %s' % self.config.img_display_peephole)
+        print ('  Data      %s' % self.config.img_display_data)
+        print ('    As binary %s' % self.config.img_display_binary)
+        print ('Pixel processing')
+        print ('  Bit threshold divisor   %s' % self.config.bit_thresh_div)
+        print ('  Pixel threshold minimum %s (0x%02X)' % (self.config.pix_thresh_min, self.config.pix_thresh_min))
+        print ('  Dilate    %s' % self.config.dilate)
+        print ('  Erode     %s' % self.config.erode)
+        print ('  Radius    %s' % self.config.radius)
+        print ('  Threshold %s' % self.config.threshold)
+        print ('  Step')
+        print ('    X       % 5.1f' % self.step_x)
+        print ('    X       % 5.1f' % self.step_y)
+        print ('Bit state')
+        print ('  Data read %d' % self.data_read)
+        print ('  Bits per group')
+        print ('    X       %d cols' % self.group_cols)
+        print ('    Y       %d rows' % self.group_rows)
+        print ('  Bit points total')
+        print ('    X       %d cols' % len(self.grid_points_x))
+        print ('    Y       %d rows' % len(self.grid_points_y))
+        print ('  Inverted  %d' % self.inverted)
+        print ('  Intersections %d' % len(self.grid_intersections))
+        print ('  Viewport')
+        print ('    X       %d' % self.config.view.x)
+        print ('    Y       %d' % self.config.view.y)
+        print ('    W       %d' % self.config.view.w)
+        print ('    H       %d' % self.config.view.h)
+        print ('    PanX    %d' % self.config.view.incx)
+        print ('    PanY    %d' % self.config.view.incy)
 
     def redraw_grid(self):
         if not self.gui:
@@ -544,14 +544,14 @@ class Rompar(object):
 
         # maximum possible value if all pixels are set
         maxval = (self.config.radius * self.config.radius) * 255
-        print 'read_data max aperture value:', maxval
+        print ('read_data max aperture value:', maxval)
 
         if data_ref:
-            print 'read_data: loading reference data (%d entries)' % len(data_ref)
-            print 'Grid intersections: %d' % len(self.grid_intersections)
+            print ('read_data: loading reference data (%d entries)' % len(data_ref))
+            print ('Grid intersections: %d' % len(self.grid_intersections))
             self.data = data_ref
         else:
-            print 'read_data: computing'
+            print ('read_data: computing')
             # Compute
             self.data = []
             for x, y in self.grid_intersections:
@@ -612,7 +612,7 @@ class Rompar(object):
                     f.write(crs[(col, row)])
                 # Newline afer every row
                 f.write('\n')
-        print 'Saved %s' % fn
+        print ('Saved %s' % fn)
 
     def save_grid(self, fn=None):
         config = dict(self.config.__dict__)
@@ -641,7 +641,7 @@ class Rompar(object):
             symlinka(fn, self.basename + '.json')
         gridout = open(fn, 'wb')
         json.dump(j, gridout, indent=4, sort_keys=True)
-        print 'Saved %s' % fn
+        print ('Saved %s' % fn)
 
     def data_as_cr(self):
         '''Return data as binary chars in ret[(column, row)] map'''
@@ -740,8 +740,8 @@ class Rompar(object):
                     for y in self.grid_points_y:
                         if img_y >= y - self.config.radius / 2 and img_y <= y + self.config.radius / 2:
                             value = self.toggle_data(x, y)
-                            #print self.img_target[x, y]
-                            #print 'value', value
+                            #print (self.img_target[x, y])
+                            #print ('value', value)
                             if value == '0':
                                 cv2.circle(
                                     self.img_grid, (x, y),
@@ -760,7 +760,7 @@ class Rompar(object):
         else:
             #if not Target[img_y, img_x]:
             if flags != cv2.EVENT_FLAG_SHIFTKEY and not self.get_pixel(img_y, img_x):
-                print 'autocenter: miss!'
+                print ('autocenter: miss!')
                 return
 
             if img_x in self.grid_points_x:
@@ -797,7 +797,7 @@ class Rompar(object):
             for x in self.grid_points_x:
                 for y in self.grid_points_y:
                     if img_y >= y - self.config.radius / 2 and img_y <= y + self.config.radius / 2:
-                        #print 'value', get_data(x,y)
+                        #print ('value', get_data(x,y))
                         # select the whole row
                         xcount = 0
                         for x in self.grid_points_x:
@@ -815,7 +815,7 @@ class Rompar(object):
         # Edit grid
         else:
             if flags != cv2.EVENT_FLAG_SHIFTKEY and not self.get_pixel(img_y, img_x):
-                print 'autocenter: miss!'
+                print ('autocenter: miss!')
                 return
 
             if img_y in self.grid_points_y:
@@ -890,14 +890,14 @@ class Rompar(object):
 
     # draw grid
     def draw_line(self, x, y, direction, intersections):
-        print 'draw_line', x, y, direction, intersections, len(self.grid_points_x), len(self.grid_points_y)
+        print ('draw_line', x, y, direction, intersections, len(self.grid_points_x), len(self.grid_points_y))
 
         if direction == 'H':
-            print 'Draw H line', (0, y), (self.img_target.width, y)
+            print ('Draw H line', (0, y), (self.img_target.width, y))
             cv2.line(self.img_grid, (0, y), (self.img_target.width, y), (0xff, 0x00, 0x00),
                     1)
             for gridx in self.grid_points_x:
-                print '*****self.grid_points_x circle', (gridx, y), self.config.radius
+                print ('*****self.grid_points_x circle', (gridx, y), self.config.radius)
                 cv2.circle(
                     self.img_grid, (gridx, y),
                     self.config.radius,
@@ -919,14 +919,14 @@ class Rompar(object):
                 if intersections:
                     self.grid_intersections.append((x, gridy))
         self.show_image()
-        print 'draw_line grid intersections:', len(self.grid_intersections)
+        print ('draw_line grid intersections:', len(self.grid_intersections))
 
     def show_data(self):
         if not self.data_read:
             return
 
         self.img_hex.fill(0)
-        print
+        print()
         dat = self.get_all_data()
         for row in range(len(self.grid_points_y)):
             out = ''
@@ -953,7 +953,7 @@ class Rompar(object):
                                 cv2.FONT_HERSHEY_SIMPLEX,
                                 self.config.font_size,
                                 textcolor)
-            #print outbin
-            #print
-            #print out
-        print
+            #print (outbin)
+            #print()
+            #print (out)
+        print()

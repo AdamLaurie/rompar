@@ -31,7 +31,7 @@ def screen_wh():
 
     resolution_string, _junk = p2.communicate()
     resolution = resolution_string.split()[0]
-    width, height = resolution.split('x')
+    width, height = resolution.split(b'x')
     return int(width), int(height)
 
 
@@ -48,7 +48,7 @@ class View(object):
         # Step increment
         self.incx = screenw // 3
         self.incy = screenh // 3
-        
+
 
 class Config(object):
     def __init__(self):
