@@ -186,7 +186,7 @@ class Rompar(object):
         if ki > 66000:
             return
         if ki < 0:
-            print ("Exiting on closed window")
+            print ("Exiting on closed")
             self.running = False
             return
         self.on_key(k)
@@ -237,7 +237,7 @@ class Rompar(object):
 
 
         self.title = "rompar %s" % img_fn
-        cv2.namedWindow(self.title, 1)
+        cv2.namedWindow(self.title, 0)
         cv2.setMouseCallback(self.title, self.on_mouse, None)
 
         self.img_target = numpy.copy(self.img_original)
@@ -865,7 +865,8 @@ class Rompar(object):
             self.show_data()
             cv2.bitwise_or(self.img_display, self.img_hex, self.img_display)
 
-        self.img_display_viewport = self.img_display
+        self.img_display_viewport = self.img_display[self.config.view.y:self.config.view.y+self.config.view.h,
+                                                     self.config.view.x:self.config.view.x+self.config.view.w]
         cv2.imshow(self.title, self.img_display_viewport)
 
     def auto_center(self, x, y):
