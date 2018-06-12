@@ -1,10 +1,12 @@
 from __future__ import print_function
+from __future__ import division
 import subprocess
 import sys
 import cv2
 import traceback
 import json
 import numpy
+import os
 
 from .config import *
 from .cmd_help import *
@@ -558,8 +560,8 @@ class Rompar(object):
                 value = 0
                 # FIXME: misleading
                 # This isn't a radius but rather a bounding box
-                for xx in range(x - (self.config.radius / 2), x + (self.config.radius / 2)):
-                    for yy in range(y - (self.config.radius / 2), y + (self.config.radius / 2)):
+                for xx in range(x - (self.config.radius // 2), x + (self.config.radius // 2)):
+                    for yy in range(y - (self.config.radius // 2), y + (self.config.radius // 2)):
                         value += self.get_pixel(yy, xx)
                 if value > maxval / self.config.bit_thresh_div:
                     self.data.append('1')
@@ -672,7 +674,7 @@ class Rompar(object):
     def get_all_data(self):
         '''Return data as bytes'''
         out = ''
-        for column in range(len(self.grid_points_x) / self.group_cols):
+        for column in range(len(self.grid_points_x) // self.group_cols):
             for row in range(len(self.grid_points_y)):
                 thischunk = ''
                 for x in range(self.group_cols):
@@ -684,7 +686,7 @@ class Rompar(object):
                         else:
                             thisbit = '0'
                     thischunk += thisbit
-                for x in range(self.group_cols / 8):
+                for x in range(self.group_cols // 8):
                     thisbyte = thischunk[x * 8:x * 8 + 8]
                     # reverse self.group_cols if we want LSB
                     if self.config.LSB_Mode:
@@ -932,7 +934,7 @@ class Rompar(object):
         for row in range(len(self.grid_points_y)):
             out = ''
             outbin = ''
-            for column in range(len(self.grid_points_x) / self.group_cols):
+            for column in range(len(self.grid_points_x) // self.group_cols):
                 thisbyte = ord(dat[column * len(self.grid_points_y) + row])
                 hexbyte = '%02X ' % thisbyte
                 out += hexbyte
@@ -950,7 +952,7 @@ class Rompar(object):
                     cv2.putText(self.img_hex,
                                 disp_data,
                                 (self.grid_points_x[column * self.group_cols],
-                                self.grid_points_y[row] + self.config.radius / 2 + 1),
+                                self.grid_points_y[row] + self.config.radius // 2 + 1),
                                 cv2.FONT_HERSHEY_SIMPLEX,
                                 self.config.font_size,
                                 textcolor)
