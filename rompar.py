@@ -20,7 +20,7 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-from rompar.rompar import Rompar
+from rompar.rompar import Rompar, RomparUIOpenCV
 
 def main():
     import argparse
@@ -39,10 +39,9 @@ def main():
     parser.add_argument('rows_per_group', nargs='?', type=int, help='')
     args = parser.parse_args()
 
-    romp = Rompar()
-    romp.debug = args.debug
-    romp.group_cols = args.cols_per_group
-    romp.group_rows = args.rows_per_group
+    romp = Rompar(args.image, grid_file=args.load,
+                  group_cols=args.cols_per_group,
+                  group_rows=args.rows_per_group)
     if args.radius:
         romp.config.default_radius = args.radius
         romp.config.radius = args.radius
@@ -55,7 +54,8 @@ def main():
     if args.erode:
         romp.config.erode = int(args.erode, 0)
 
-    romp.run(args.image, grid_file=args.load)
+    rompUI = RomparUIOpenCV(romp, debug=args.debug)
+    rompUI.run()
 
 if __name__ == "__main__":
     main()

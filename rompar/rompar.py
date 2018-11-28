@@ -31,8 +31,405 @@ def to_bin(x):
     return ''.join(x & (1 << i) and '1' or '0' for i in range(7, -1, -1))
 
 
+class RomparUIOpenCV(object):
+    def __init__(self, romp, debug=False):
+        self.romp = romp
+        self.debug = debug
+        self.config = self.romp.config
+
+    def run(self):
+        cv2.namedWindow(self.romp.title, cv2.WINDOW_GUI_NORMAL)
+        cv2.setMouseCallback(self.romp.title, self.on_mouse, None)
+        
+        cmd_help()
+        cmd_help2()
+
+        # main loop
+        while self.romp.running:
+            try:
+                self.do_loop()
+            except Exception:
+                if self.debug:
+                    raise
+                print ('WARNING: exception')
+                traceback.print_exc()
+
+        print ('Exiting')
+
+    def do_loop(self):
+        self.romp.process_image()
+
+        sys.stdout.write('> ')
+        sys.stdout.flush()
+        # keystroke processing
+        ki = cv2.waitKeyEx(0)
+        print("LOOP GOT VAL", ki)
+
+        # Simple character value, if applicable
+        kc = None
+        # Char if a common char, otherwise the integer code
+        k = ki
+
+        if 0 <= ki < 256:
+            kc = chr(ki)
+            k = kc
+        elif 65506 < ki < 66000 and ki != 65535:
+            ki2 = ki - 65506 - 30
+            # modifier keys
+            if ki2 >= 0:
+                kc = chr(ki2)
+                k = kc
+
+        if kc:
+            print ('%d (%s)\n' % (ki, kc))
+        else:
+            print ('%d\n' % ki)
+
+        if ki > 66000:
+            return
+        if ki < 0:
+            print ("Exiting on closed")
+            self.romp.running = False
+            return
+        self.on_key(k)
+
+    def on_key(self, k):
+        if k == 65288 and self.romp.Edit_x >= 0:
+            # BS
+            print ('deleting column')
+            self.romp.grid_points_x.remove(self.romp.grid_points_x[self.romp.Edit_x])
+            self.romp.Edit_x = -1
+            self.romp.read_data()
+        elif k == K_LEFT:
+            self.romp.pan(-self.config.view.incx, 0)
+        elif k == K_RIGHT:
+            self.romp.pan(self.config.view.incx, 0)
+        elif k == K_UP:
+            self.romp.pan(0, -self.config.view.incy)
+        elif k == K_DOWN:
+            self.romp.pan(0, self.config.view.incy)
+            '''
+        elif k == K_UP and self.romp.Edit_y >= 0:
+            # up arrow
+            print ('editing line', self.romp.Edit_y)
+            self.romp.grid_points_y[self.romp.grid_points_y.index(self.romp.Edit_y)] -= 1
+            self.romp.Edit_y -= 1
+            self.romp.read_data()
+        elif k == K_DOWN and self.romp.Edit_y >= 0:
+            # down arrow
+            print ('editing line', self.romp.Edit_y)
+            self.romp.grid_points_y[self.romp.grid_points_y.index(self.romp.Edit_y)] += 1
+            self.romp.Edit_y += 1
+            self.romp.read_data()
+        elif k == K_RIGHT and self.romp.Edit_x >= 0:
+            # right arrow - edit entrie column group
+            print ('editing column', self.romp.Edit_x)
+            sx = self.romp.Edit_x - (self.romp.Edit_x % self.romp.group_cols)
+            for x in range(sx, sx + self.romp.group_cols):
+                self.romp.grid_points_x[x] += 1
+            self.romp.read_data()
+        elif k == K_LEFT and self.romp.Edit_x >= 0:
+            # left arrow
+            print ('editing column', self.romp.Edit_x)
+            sx = self.romp.Edit_x - (self.romp.Edit_x % self.romp.group_cols)
+            for x in range(sx, sx + self.romp.group_cols):
+                self.romp.grid_points_x[x] -= 1
+            self.romp.read_data()
+            '''
+        elif k == 65432 and self.romp.Edit_x >= 0:
+            # right arrow on numpad - edit single column
+            print ('editing column', self.romp.Edit_x)
+            self.romp.grid_points_x[self.romp.Edit_x] += 1
+            self.romp.read_data()
+        elif k == 65430 and self.romp.Edit_x >= 0:
+            # left arrow on numpad - edit single column
+            print ('editing column', self.romp.Edit_x)
+            self.romp.grid_points_x[self.romp.Edit_x] -= 1
+            self.romp.read_data()
+        elif (k == 65439 or k == 65535) and self.romp.Edit_y >= 0:
+            # delete
+            print ('deleting row', self.romp.Edit_y)
+            self.romp.grid_points_y.remove(self.romp.Edit_y)
+            self.romp.Edit_y = -1
+            self.romp.read_data()
+        elif k == chr(10):
+            # enter
+            self.romp.Edit_x = -1
+            self.romp.Edit_y = -1
+            print ('Done editing')
+            self.romp.read_data()
+        elif k == 'a':
+            if self.config.radius:
+                self.config.radius -= 1
+                self.romp.read_data()
+            print ('Radius: %d' % self.config.radius)
+        elif k == 'A':
+            self.config.radius += 1
+            self.romp.read_data()
+            print ('Radius: %d' % self.config.radius)
+        elif k == 'b':
+            self.config.img_display_blank_image = not self.config.img_display_blank_image
+        elif k == 'c':
+            self.romp.print_config()
+        elif k == 'd':
+            self.config.dilate = max(self.config.dilate - 1, 0)
+            print ('Dilate: %d' % self.config.dilate)
+            self.romp.read_data()
+        elif k == 'D':
+            self.config.dilate += 1
+            print ('Dilate: %d' % self.config.dilate)
+            self.romp.read_data()
+        elif k == 'e':
+            self.config.erode = max(self.config.erode - 1, 0)
+            print ('Erode: %d' % self.config.erode)
+            self.romp.read_data()
+        elif k == 'E':
+            self.config.erode += 1
+            print ('Erode: %d' % self.config.erode)
+            self.romp.read_data()
+        elif k == 'f':
+            if self.config.font_size > 0.1:
+                self.config.font_size -= 0.1
+            print ('Font size: %d' % self.config.font_size)
+        elif k == 'F':
+            self.config.font_size += 0.1
+            print ('Font size: %d' % self.config.font_size)
+        elif k == 'g':
+            self.config.img_display_grid = not self.config.img_display_grid
+            print ('Display grid:', self.config.img_display_grid)
+        elif k == 'h' or k == '?':
+            cmd_help()
+        elif k == 'H':
+            self.config.img_display_binary = not self.config.img_display_binary
+            print ('Display binary:', self.config.img_display_binary)
+        elif k == 'i':
+            self.romp.inverted = not self.romp.inverted
+            print ('Inverted:', self.romp.inverted)
+        elif k == 'l':
+            self.config.LSB_Mode = not self.config.LSB_Mode
+            print ('LSB self.romp.data mode:', self.config.LSB_Mode)
+        elif k == 'm':
+            self.config.bit_thresh_div -= 1
+            print ('thresh_div:', self.config.bit_thresh_div)
+            self.romp.read_data()
+        elif k == 'M':
+            self.config.bit_thresh_div += 1
+            print ('thresh_div:', self.config.bit_thresh_div)
+            self.romp.read_data()
+        elif k == 'o':
+            self.config.img_display_original = not self.config.img_display_original
+            print ('display original:', self.config.img_display_original)
+        elif k == 'p':
+            self.config.img_display_peephole = not self.config.img_display_peephole
+            print ('display peephole:', self.config.img_display_peephole)
+        elif k == 'r':
+            print ('reading %d points...' % len(self.romp.grid_intersections))
+            self.romp.read_data(force=True)
+        elif k == 'R':
+            self.romp.redraw_grid()
+            self.romp.data_read = False
+        elif k == 's':
+            self.config.img_display_data = not self.config.img_display_data
+            print ('show data:', self.config.img_display_data)
+        elif k == 'S':
+            print ('saving...')
+            self.romp.cmd_save()
+        elif k == 'q':
+            print ("Exiting on q")
+            self.romp.running = False
+        elif k == 't':
+            self.config.threshold = True
+            print ('Threshold:', self.config.threshold)
+        elif k == '-':
+            self.config.pix_thresh_min = max(self.config.pix_thresh_min - 1, 0x01)
+            print ('Threshold filter %02x' % self.config.pix_thresh_min)
+            if self.romp.data_read:
+                self.romp.read_data()
+        elif k == '+':
+            self.config.pix_thresh_min = min(self.config.pix_thresh_min + 1, 0xFF)
+            print ('Threshold filter %02x' % self.config.pix_thresh_min)
+            if self.romp.data_read:
+                self.romp.read_data()
+        elif k == '/':
+            self.cmd_find(k)
+        #else:
+        #    print ('Unknown command %s' % k)
+
+    def cmd_find(self, k):
+        print ('Enter space delimeted HEX (in image window), e.g. 10 A1 EF: ',)
+        sys.stdout.flush()
+        shx = ''
+        while 42:
+            c = cv2.waitKey(0)
+            print("Raw Key", c)
+            # BS or DEL
+            if c == 65288 or c == 65535 or k == 65439:
+                c = 0x08
+            if c > 255:
+                continue
+
+            # Newline
+            if c == 0x0d or c == 0x0a:
+                print()
+                break
+            # Backspace
+            elif c == 0x08:
+                if not shx:
+                    sys.stdout.write('\a')
+                    sys.stdout.flush()
+                    continue
+                sys.stdout.write('\b \b')
+                sys.stdout.flush()
+                shx = shx[:-1]
+            else:
+                c = chr(c)
+                sys.stdout.write(c)
+                sys.stdout.flush()
+                shx += c
+        try:
+            self.romp.Search_HEX = [int(h, 16) for h in shx.strip().split(' ')]
+        except ValueError:
+            print ('Invalid hex value')
+            return
+        print ('searching for', shx.upper())
+
+    # mouse events
+    def on_mouse(self, event, mouse_x, mouse_y, flags, param):
+        img_x = mouse_x + self.config.view.x
+        img_y = mouse_y + self.config.view.y
+
+        # draw vertical grid lines
+        if event == cv2.EVENT_LBUTTONDOWN:
+            self.on_mouse_left(img_x, img_y, flags)
+        if event == cv2.EVENT_RBUTTONDOWN:
+            self.on_mouse_right(img_x, img_y, flags)
+
+    def on_mouse_left(self, img_x, img_y, flags):
+        # Edit data
+        if self.romp.data_read:
+            # find nearest intersection and toggle its value
+            for x in self.romp.grid_points_x:
+                if img_x >= x - self.config.radius / 2 and img_x <= x + self.config.radius / 2:
+                    for y in self.romp.grid_points_y:
+                        if img_y >= y - self.config.radius / 2 and img_y <= y + self.config.radius / 2:
+                            value = self.romp.toggle_data(x, y)
+                            #print (self.romp.img_target[x, y])
+                            #print ('value', value)
+                            if value == '0':
+                                cv2.circle(
+                                    self.romp.img_grid, (x, y),
+                                    self.config.radius,
+                                    (0xff, 0x00, 0x00),
+                                    2)
+                            else:
+                                cv2.circle(
+                                    self.romp.img_grid, (x, y),
+                                    self.config.radius,
+                                    (0x00, 0xff, 0x00),
+                                    2)
+
+                            self.romp.show_image()
+        # Edit grid
+        else:
+            #if not Target[img_y, img_x]:
+            if flags != cv2.EVENT_FLAG_SHIFTKEY and not self.romp.get_pixel(img_y, img_x):
+                print ('autocenter: miss!')
+                return
+
+            if img_x in self.romp.grid_points_x:
+                return
+            # only draw a single line if this is the first one
+            if len(self.romp.grid_points_x) == 0 or self.romp.group_cols == 1:
+                if flags != cv2.EVENT_FLAG_SHIFTKEY:
+                    img_x, img_y = self.romp.auto_center(img_x, img_y)
+
+                # don't try to auto-center if shift key pressed
+                self.romp.draw_line(img_x, img_y, 'V', False)
+                self.romp.grid_points_x.append(img_x)
+                if self.romp.group_rows == 1:
+                    self.romp.draw_line(img_x, img_y, 'V', True)
+            else:
+                # set up auto draw
+                if len(self.romp.grid_points_x) == 1:
+                    # use a float to reduce rounding errors
+                    self.romp.step_x = float(img_x - self.romp.grid_points_x[0]) / (self.romp.group_cols - 1)
+                    # reset stored self.romp.data as main loop will add all entries
+                    img_x = self.romp.grid_points_x[0]
+                    self.romp.grid_points_x = []
+                    self.romp.update_radius()
+                # draw a full set of self.romp.group_cols
+                for x in range(self.romp.group_cols):
+                    draw_x = int(img_x + x * self.romp.step_x)
+                    self.romp.grid_points_x.append(draw_x)
+                    self.romp.draw_line(draw_x, img_y, 'V', True)
+
+    def on_mouse_right(self, img_x, img_y, flags):
+        # Edit data
+        if self.romp.data_read:
+            # find row and select for editing
+            for x in self.romp.grid_points_x:
+                for y in self.romp.grid_points_y:
+                    if img_y >= y - self.config.radius / 2 and img_y <= y + self.config.radius / 2:
+                        #print ('value', get_data(x,y))
+                        # select the whole row
+                        xcount = 0
+                        for x in self.romp.grid_points_x:
+                            if img_x >= x - self.config.radius / 2 and\
+                               img_x <= x + self.config.radius / 2:
+                                self.romp.Edit_x = xcount
+                                break
+                            else:
+                                xcount += 1
+                        # highlight the bit group we're in
+                        print(self.romp.Edit_x, self.romp.Edit_x, self.romp.group_cols)
+                        sx = self.romp.Edit_x - (self.romp.Edit_x % self.romp.group_cols)
+                        self.romp.Edit_y = y
+                        self.romp.read_data()
+                        self.romp.show_image()
+                        return
+        # Edit grid
+        else:
+            if flags != cv2.EVENT_FLAG_SHIFTKEY and not self.romp.get_pixel(img_y, img_x):
+                print ('autocenter: miss!')
+                return
+
+            if img_y in self.romp.grid_points_y:
+                return
+            # only draw a single line if this is the first one
+            if len(self.romp.grid_points_y) == 0 or self.romp.group_rows == 1:
+                if flags != cv2.EVENT_FLAG_SHIFTKEY:
+                    img_x, img_y = self.romp.auto_center(img_x, img_y)
+
+                self.romp.draw_line(img_x, img_y, 'H', False)
+                self.romp.grid_points_y.append(img_y)
+                if self.romp.group_rows == 1:
+                    self.romp.draw_line(img_x, img_y, 'H', True)
+            else:
+                # set up auto draw
+                if len(self.romp.grid_points_y) == 1:
+                    # use a float to reduce rounding errors
+                    self.romp.step_y = float(img_y - self.romp.grid_points_y[0]) / (self.romp.group_rows - 1)
+                    # reset stored self.romp.data as main loop will add all entries
+                    img_y = self.romp.grid_points_y[0]
+                    self.romp.grid_points_y = []
+                    self.romp.update_radius()
+                # draw a full set of self.romp.group_rows
+                for y in range(self.romp.group_rows):
+                    draw_y = int(img_y + y * self.romp.step_y)
+                    # only draw up to the edge of the image
+                    if draw_y > self.romp.img_original.height:
+                        break
+                    self.romp.grid_points_y.append(draw_y)
+                    self.romp.draw_line(img_x, draw_y, 'H', True)
+
+
+
 class Rompar(object):
-    def __init__(self):
+    def __init__(self, img_fn=None, grid_file=None, group_cols=None, group_rows=None):
+        self.img_fn = img_fn
+        self.grid_file = grid_file
+        self.title = "rompar %s" % self.img_fn
+
         self.gui = True
 
         self.img_fn = None
@@ -70,28 +467,55 @@ class Rompar(object):
         # Process events while true
         self.running = True
 
-        # Image buffers
-        self.img_target = None
-        self.img_grid = None
-        self.img_mask = None
-        self.img_peephole = None
-        self.img_display = None
-        self.img_display_viewport = None
-        self.img_blank = None
-        self.img_hex = None
-        # Font currently rendering
-        self.font = None
-
-        # Be more verbose
-        # Crash on exceptions
-        self.debug = False
-        self.basename = None
-
         self.config = Config()
+        self.config.font_size = 1.0
 
-    def load_grid(self, grid_json=None, gui=True):
-        self.gui = gui
+        grid_json = None
+        if self.grid_file:
+            with open(self.grid_file, 'rb') as gridfile:
+                print("loading", self.grid_file)
+                grid_json = json.load(gridfile)
+            if self.img_fn is None:
+                self.img_fn = grid_json.get('img_fn')
+            if self.group_cols is None:
+                self.group_cols = grid_json.get('group_cols')
+                self.group_rows = grid_json.get('group_rows')
+        else:
+            # Then need critical args
+            if not self.img_fn:
+                raise Exception("Filename required")
+            if not self.group_cols:
+                raise Exception("cols required")
+            if not self.group_rows:
+                raise Exception("rows required")
 
+
+        if self.img_fn is None:
+            raise Exception("Image required")
+
+        #testing ground for new cv version
+        #load img as numpy ndarray dimensions (height, width, channels)
+        self.img_original = cv2.imread(self.img_fn, cv2.IMREAD_COLOR)
+        print ('Image is %dx%d' % (self.img_original.shape[1], self.img_original.shape[0]))
+        
+        # Image buffers
+        self.img_target = numpy.zeros(self.img_original.shape, numpy.uint8)
+        self.img_grid = numpy.zeros(self.img_original.shape, numpy.uint8)
+        self.img_mask = numpy.ndarray(self.img_original.shape, numpy.uint8)
+        self.img_mask[:] = (0, 0, 255)
+        self.img_peephole = numpy.zeros(self.img_original.shape, numpy.uint8)
+        self.img_display = numpy.zeros(self.img_original.shape, numpy.uint8)
+        self.img_display_viewport = None
+        self.img_blank = numpy.zeros(self.img_original.shape, numpy.uint8)
+        self.img_hex = numpy.zeros(self.img_original.shape, numpy.uint8)
+        self.img_target = numpy.copy(self.img_original)
+
+        self.basename = self.img_fn[:self.img_fn.find('.')]
+
+        if grid_json:
+            self.__load_grid(grid_json)
+
+    def __load_grid(self, grid_json=None):
         self.grid_intersections = grid_json['grid_intersections']
         data = grid_json['data']
         self.grid_points_x = grid_json['grid_points_x']
@@ -147,322 +571,7 @@ class Rompar(object):
                 raise Exception("%d != %d" % (len(data), len(self.grid_intersections)))
             self.read_data(data_ref=data, force=True)
 
-    def do_loop(self):
-        # image processing
-        cv2.dilate(self.img_target, (3,3))
-
-        if self.config.threshold:
-            cv2.threshold(self.img_original, self.config.pix_thresh_min, 0xff, cv2.THRESH_BINARY, self.img_target)
-            cv2.bitwise_and(self.img_target, self.img_mask, self.img_target)
-        if self.config.dilate:
-            cv2.dilate(self.img_target, (3,3))
-        if self.config.erode:
-            cv2.erode(self.img_target, (3,3))
-        self.show_image()
-
-        sys.stdout.write('> ')
-        sys.stdout.flush()
-        # keystroke processing
-        ki = cv2.waitKey(0)
-
-        # Simple character value, if applicable
-        kc = None
-        # Char if a common char, otherwise the integer code
-        k = ki
-
-        if 0 <= ki < 256:
-            kc = chr(ki)
-            k = kc
-        elif 65506 < ki < 66000 and ki != 65535:
-            ki2 = ki - 65506 - 30
-            # modifier keys
-            if ki2 >= 0:
-                kc = chr(ki2)
-                k = kc
-
-        if kc:
-            print ('%d (%s)\n' % (ki, kc))
-        else:
-            print ('%d\n' % ki)
-
-        if ki > 66000:
-            return
-        if ki < 0:
-            print ("Exiting on closed")
-            self.running = False
-            return
-        self.on_key(k)
-
-    def run(self, img_fn=None, grid_file=None):
-        self.img_fn = img_fn
-        grid_json = None
-        if grid_file:
-            with open(grid_file, 'rb') as gridfile:
-                grid_json = json.load(gridfile)
-            if self.img_fn is None:
-                self.img_fn = grid_json.get('img_fn')
-            if self.group_cols is None:
-                self.group_cols = grid_json.get('group_cols')
-                self.group_rows = grid_json.get('group_rows')
-        else:
-            # Then need critical args
-            if not self.img_fn:
-                raise Exception("Filename required")
-            if not self.group_cols:
-                raise Exception("cols required")
-            if not self.group_rows:
-                raise Exception("rows required")
-
-        if self.img_fn is None:
-            raise Exception("Image required")
-
-        #testing ground for new cv version
-        #load img as numpy ndarray dimensions (height, width, channels)
-        self.img_original = cv2.imread(self.img_fn, cv2.IMREAD_COLOR)
-        print ('Image is %dx%d' % (self.img_original.shape[1], self.img_original.shape[0]))
-
-
-        self.basename = self.img_fn[:self.img_fn.find('.')]
-
-        # new cv image buffers
-        self.img_target = numpy.zeros(self.img_original.shape, numpy.uint8)
-        self.img_grid = numpy.zeros(self.img_original.shape, numpy.uint8)
-        self.img_mask = numpy.ndarray(self.img_original.shape, numpy.uint8)
-        self.img_mask[:] = (0, 0, 255)
-        self.img_peephole = numpy.zeros(self.img_original.shape, numpy.uint8)
-        self.img_display = numpy.zeros(self.img_original.shape, numpy.uint8)
-        self.img_blank = numpy.zeros(self.img_original.shape, numpy.uint8)
-        self.img_hex = numpy.zeros(self.img_original.shape, numpy.uint8)
-
-
-        self.config.font_size = 1.0
-
-
-        self.title = "rompar %s" % img_fn
-        cv2.namedWindow(self.title, 0)
-        cv2.setMouseCallback(self.title, self.on_mouse, None)
-
-        self.img_target = numpy.copy(self.img_original)
-
-        if grid_json:
-            self.load_grid(grid_json)
-
-        cmd_help()
-        cmd_help2()
-
-        # main loop
-        while self.running:
-            try:
-                self.do_loop()
-            except Exception:
-                if self.debug:
-                    raise
-                print ('WARNING: exception')
-                traceback.print_exc()
-
-        print ('Exiting')
-
-    def on_key(self, k):
-        if k == 65288 and self.Edit_x >= 0:
-            # BS
-            print ('deleting column')
-            self.grid_points_x.remove(self.grid_points_x[self.Edit_x])
-            self.Edit_x = -1
-            self.read_data()
-        elif k == K_LEFT:
-            self.pan(-self.config.view.incx, 0)
-        elif k == K_RIGHT:
-            self.pan(self.config.view.incx, 0)
-        elif k == K_UP:
-            self.pan(0, -self.config.view.incy)
-        elif k == K_DOWN:
-            self.pan(0, self.config.view.incy)
-            '''
-        elif k == K_UP and self.Edit_y >= 0:
-            # up arrow
-            print ('editing line', self.Edit_y)
-            self.grid_points_y[self.grid_points_y.index(self.Edit_y)] -= 1
-            self.Edit_y -= 1
-            self.read_data()
-        elif k == K_DOWN and self.Edit_y >= 0:
-            # down arrow
-            print ('editing line', self.Edit_y)
-            self.grid_points_y[self.grid_points_y.index(self.Edit_y)] += 1
-            self.Edit_y += 1
-            self.read_data()
-        elif k == K_RIGHT and self.Edit_x >= 0:
-            # right arrow - edit entrie column group
-            print ('editing column', self.Edit_x)
-            sx = self.Edit_x - (self.Edit_x % self.group_cols)
-            for x in range(sx, sx + self.group_cols):
-                self.grid_points_x[x] += 1
-            self.read_data()
-        elif k == K_LEFT and self.Edit_x >= 0:
-            # left arrow
-            print ('editing column', self.Edit_x)
-            sx = self.Edit_x - (self.Edit_x % self.group_cols)
-            for x in range(sx, sx + self.group_cols):
-                self.grid_points_x[x] -= 1
-            self.read_data()
-            '''
-        elif k == 65432 and self.Edit_x >= 0:
-            # right arrow on numpad - edit single column
-            print ('editing column', self.Edit_x)
-            self.grid_points_x[self.Edit_x] += 1
-            self.read_data()
-        elif k == 65430 and self.Edit_x >= 0:
-            # left arrow on numpad - edit single column
-            print ('editing column', self.Edit_x)
-            self.grid_points_x[self.Edit_x] -= 1
-            self.read_data()
-        elif (k == 65439 or k == 65535) and self.Edit_y >= 0:
-            # delete
-            print ('deleting row', self.Edit_y)
-            self.grid_points_y.remove(self.Edit_y)
-            self.Edit_y = -1
-            self.read_data()
-        elif k == chr(10):
-            # enter
-            self.Edit_x = -1
-            self.Edit_y = -1
-            print ('Done editing')
-            self.read_data()
-        elif k == 'a':
-            if self.config.radius:
-                self.config.radius -= 1
-                self.read_data()
-            print ('Radius: %d' % self.config.radius)
-        elif k == 'A':
-            self.config.radius += 1
-            self.read_data()
-            print ('Radius: %d' % self.config.radius)
-        elif k == 'b':
-            self.config.img_display_blank_image = not self.config.img_display_blank_image
-        elif k == 'c':
-            self.print_config()
-        elif k == 'd':
-            self.config.dilate = max(self.config.dilate - 1, 0)
-            print ('Dilate: %d' % self.config.dilate)
-            self.read_data()
-        elif k == 'D':
-            self.config.dilate += 1
-            print ('Dilate: %d' % self.config.dilate)
-            self.read_data()
-        elif k == 'e':
-            self.config.erode = max(self.config.erode - 1, 0)
-            print ('Erode: %d' % self.config.erode)
-            self.read_data()
-        elif k == 'E':
-            self.config.erode += 1
-            print ('Erode: %d' % self.config.erode)
-            self.read_data()
-        elif k == 'f':
-            if self.config.font_size > 0.1:
-                self.config.font_size -= 0.1
-            print ('Font size: %d' % self.config.font_size)
-        elif k == 'F':
-            self.config.font_size += 0.1
-            print ('Font size: %d' % self.config.font_size)
-        elif k == 'g':
-            self.config.img_display_grid = not self.config.img_display_grid
-            print ('Display grid:', self.config.img_display_grid)
-        elif k == 'h' or k == '?':
-            cmd_help()
-        elif k == 'H':
-            self.config.img_display_binary = not self.config.img_display_binary
-            print ('Display binary:', self.config.img_display_binary)
-        elif k == 'i':
-            self.inverted = not self.inverted
-            print ('Inverted:', self.inverted)
-        elif k == 'l':
-            self.config.LSB_Mode = not self.config.LSB_Mode
-            print ('LSB self.data mode:', self.config.LSB_Mode)
-        elif k == 'm':
-            self.config.bit_thresh_div -= 1
-            print ('thresh_div:', self.config.bit_thresh_div)
-            self.read_data()
-        elif k == 'M':
-            self.config.bit_thresh_div += 1
-            print ('thresh_div:', self.config.bit_thresh_div)
-            self.read_data()
-        elif k == 'o':
-            self.config.img_display_original = not self.config.img_display_original
-            print ('display original:', self.config.img_display_original)
-        elif k == 'p':
-            self.config.img_display_peephole = not self.config.img_display_peephole
-            print ('display peephole:', self.config.img_display_peephole)
-        elif k == 'r':
-            print ('reading %d points...' % len(self.grid_intersections))
-            self.read_data(force=True)
-        elif k == 'R':
-            self.redraw_grid()
-            self.data_read = False
-        elif k == 's':
-            self.config.img_display_data = not self.config.img_display_data
-            print ('show data:', self.config.img_display_data)
-        elif k == 'S':
-            self.cmd_save()
-        elif k == 'q':
-            print ("Exiting on q")
-            self.running = False
-        elif k == 't':
-            self.config.threshold = True
-            print ('Threshold:', self.config.threshold)
-        elif k == '-':
-            self.config.pix_thresh_min = max(self.config.pix_thresh_min - 1, 0x01)
-            print ('Threshold filter %02x' % self.config.pix_thresh_min)
-            if self.data_read:
-                self.read_data()
-        elif k == '+':
-            self.config.pix_thresh_min = min(self.config.pix_thresh_min + 1, 0xFF)
-            print ('Threshold filter %02x' % self.config.pix_thresh_min)
-            if self.data_read:
-                self.read_data()
-        elif k == '/':
-            self.cmd_find(k)
-        #else:
-        #    print ('Unknown command %s' % k)
-
-    def cmd_find(self, k):
-        print ('Enter space delimeted HEX (in image window), e.g. 10 A1 EF: ',)
-        sys.stdout.flush()
-        shx = ''
-        while 42:
-            c = cv2.waitKey(0)
-            # BS or DEL
-            if c == 65288 or c == 65535 or k == 65439:
-                c = 0x08
-            if c > 255:
-                continue
-
-            # Newline
-            if c == 0x0d or c == 0x0a:
-                print()
-                break
-            # Backspace
-            elif c == 0x08:
-                if not shx:
-                    sys.stdout.write('\a')
-                    sys.stdout.flush()
-                    continue
-                sys.stdout.write('\b \b')
-                sys.stdout.flush()
-                shx = shx[:-1]
-            else:
-                c = chr(c)
-                sys.stdout.write(c)
-                sys.stdout.flush()
-                shx += c
-        try:
-            self.Search_HEX = [int(h, 16) for h in shx.strip().split(' ')]
-        except ValueError:
-            print ('Invalid hex value')
-            return
-        print ('searching for', shx.upper())
-
     def cmd_save(self):
-        print ('saving...')
-
         self.next_save()
         self.save_grid()
 
@@ -519,8 +628,8 @@ class Rompar(object):
         self.grid_points_y.sort()
 
         for x in self.grid_points_x:
-            cv2.line(self.img_grid, (x, 0), (x, self.img_target.shape[0]), (0xff, 0x00, 0x00),
-                    1)
+            cv2.line(self.img_grid, (x, 0), (x, self.img_target.shape[0]),
+                     (0xff, 0x00, 0x00), 1)
             for y in self.grid_points_y:
                 self.grid_intersections.append((x, y))
         self.grid_intersections.sort()
@@ -576,8 +685,8 @@ class Rompar(object):
                 # highlight if we're in edit mode
                 if y == self.Edit_y:
                     sx = self.Edit_x - (self.Edit_x % self.group_cols)
-                    if self.grid_points_x.index(x) >= sx and self.grid_points_x.index(
-                            x) < sx + self.group_cols:
+                    if self.grid_points_x.index(x) >= sx and \
+                       self.grid_points_x.index(x) < sx + self.group_cols:
                         cv2.circle(
                             self.img_grid, (x, y),
                             self.config.radius,
@@ -604,11 +713,11 @@ class Rompar(object):
         symlinka(fn, self.basename + '.txt')
         crs = self.data_as_cr()
         with open(fn, 'w') as f:
-            for row in xrange(len(self.grid_points_y)):
+            for row in range(len(self.grid_points_y)):
                 # Put a space between row gaps
                 if row and row % self.group_rows == 0:
                     f.write('\n')
-                for col in xrange(len(self.grid_points_x)):
+                for col in range(len(self.grid_points_x)):
                     if col and col % self.group_cols == 0:
                         f.write(' ')
                     f.write(crs[(col, row)])
@@ -641,9 +750,24 @@ class Rompar(object):
             if not fn:
                 fn = self.basename + '_s%d.json' % self.saven
             symlinka(fn, self.basename + '.json')
-        gridout = open(fn, 'wb')
+        gridout = open(fn, 'w')
         json.dump(j, gridout, indent=4, sort_keys=True)
         print ('Saved %s' % fn)
+
+    def process_image(self):
+        # image processing
+        cv2.dilate(self.img_target, (3,3))
+
+        if self.config.threshold:
+            cv2.threshold(self.img_original, self.config.pix_thresh_min,
+                          0xff, cv2.THRESH_BINARY, self.img_target)
+            cv2.bitwise_and(self.img_target, self.img_mask, self.img_target)
+        if self.config.dilate:
+            cv2.dilate(self.img_target, (3,3))
+        if self.config.erode:
+            cv2.erode(self.img_target, (3,3))
+        self.show_image()
+
 
     def data_as_cr(self):
         '''Return data as binary chars in ret[(column, row)] map'''
@@ -679,7 +803,7 @@ class Rompar(object):
                 thischunk = ''
                 for x in range(self.group_cols):
                     thisbit = self.data[x * len(self.grid_points_y) + row +
-                                   column * self.group_cols * len(self.grid_points_y)]
+                                        column * self.group_cols * len(self.grid_points_y)]
                     if self.inverted:
                         if thisbit == '0':
                             thisbit = '1'
@@ -722,133 +846,6 @@ class Rompar(object):
             elif self.step_y:
                 self.config.radius = int(self.step_y / 3)
 
-    # mouse events
-    def on_mouse(self, event, mouse_x, mouse_y, flags, param):
-        img_x = mouse_x + self.config.view.x
-        img_y = mouse_y + self.config.view.y
-
-        # draw vertical grid lines
-        if event == cv2.EVENT_LBUTTONDOWN:
-            self.on_mouse_left(img_x, img_y, flags)
-        if event == cv2.EVENT_RBUTTONDOWN:
-            self.on_mouse_right(img_x, img_y, flags)
-
-    def on_mouse_left(self, img_x, img_y, flags):
-        # Edit data
-        if self.data_read:
-            # find nearest intersection and toggle its value
-            for x in self.grid_points_x:
-                if img_x >= x - self.config.radius / 2 and img_x <= x + self.config.radius / 2:
-                    for y in self.grid_points_y:
-                        if img_y >= y - self.config.radius / 2 and img_y <= y + self.config.radius / 2:
-                            value = self.toggle_data(x, y)
-                            #print (self.img_target[x, y])
-                            #print ('value', value)
-                            if value == '0':
-                                cv2.circle(
-                                    self.img_grid, (x, y),
-                                    self.config.radius,
-                                    (0xff, 0x00, 0x00),
-                                    2)
-                            else:
-                                cv2.circle(
-                                    self.img_grid, (x, y),
-                                    self.config.radius,
-                                    (0x00, 0xff, 0x00),
-                                    2)
-
-                            self.show_image()
-        # Edit grid
-        else:
-            #if not Target[img_y, img_x]:
-            if flags != cv2.EVENT_FLAG_SHIFTKEY and not self.get_pixel(img_y, img_x):
-                print ('autocenter: miss!')
-                return
-
-            if img_x in self.grid_points_x:
-                return
-            # only draw a single line if this is the first one
-            if len(self.grid_points_x) == 0 or self.group_cols == 1:
-                if flags != cv2.EVENT_FLAG_SHIFTKEY:
-                    img_x, img_y = self.auto_center(img_x, img_y)
-
-                # don't try to auto-center if shift key pressed
-                self.draw_line(img_x, img_y, 'V', False)
-                self.grid_points_x.append(img_x)
-                if self.group_rows == 1:
-                    self.draw_line(img_x, img_y, 'V', True)
-            else:
-                # set up auto draw
-                if len(self.grid_points_x) == 1:
-                    # use a float to reduce rounding errors
-                    self.step_x = float(img_x - self.grid_points_x[0]) / (self.group_cols - 1)
-                    # reset stored self.data as main loop will add all entries
-                    img_x = self.grid_points_x[0]
-                    self.grid_points_x = []
-                    self.update_radius()
-                # draw a full set of self.group_cols
-                for x in range(self.group_cols):
-                    draw_x = int(img_x + x * self.step_x)
-                    self.grid_points_x.append(draw_x)
-                    self.draw_line(draw_x, img_y, 'V', True)
-
-    def on_mouse_right(self, img_x, img_y, flags):
-        # Edit data
-        if self.data_read:
-            # find row and select for editing
-            for x in self.grid_points_x:
-                for y in self.grid_points_y:
-                    if img_y >= y - self.config.radius / 2 and img_y <= y + self.config.radius / 2:
-                        #print ('value', get_data(x,y))
-                        # select the whole row
-                        xcount = 0
-                        for x in self.grid_points_x:
-                            if img_x >= x - self.config.radius / 2 and img_x <= x + self.config.radius / 2:
-                                self.Edit_x = xcount
-                                break
-                            else:
-                                xcount += 1
-                        # highlight the bit group we're in
-                        sx = self.Edit_x - (self.Edit_x % self.group_cols)
-                        self.Edit_y = y
-                        self.read_data()
-                        self.show_image()
-                        return
-        # Edit grid
-        else:
-            if flags != cv2.EVENT_FLAG_SHIFTKEY and not self.get_pixel(img_y, img_x):
-                print ('autocenter: miss!')
-                return
-
-            if img_y in self.grid_points_y:
-                return
-            # only draw a single line if this is the first one
-            if len(self.grid_points_y) == 0 or self.group_rows == 1:
-                if flags != cv2.EVENT_FLAG_SHIFTKEY:
-                    img_x, img_y = self.auto_center(img_x, img_y)
-
-                self.draw_line(img_x, img_y, 'H', False)
-                self.grid_points_y.append(img_y)
-                if self.group_rows == 1:
-                    self.draw_line(img_x, img_y, 'H', True)
-            else:
-                # set up auto draw
-                if len(self.grid_points_y) == 1:
-                    # use a float to reduce rounding errors
-                    self.step_y = float(img_y - self.grid_points_y[0]) / (self.group_rows - 1)
-                    # reset stored self.data as main loop will add all entries
-                    img_y = self.grid_points_y[0]
-                    self.grid_points_y = []
-                    self.update_radius()
-                # draw a full set of self.group_rows
-                for y in range(self.group_rows):
-                    draw_y = int(img_y + y * self.step_y)
-                    # only draw up to the edge of the image
-                    if draw_y > self.img_original.height:
-                        break
-                    self.grid_points_y.append(draw_y)
-                    self.draw_line(img_x, draw_y, 'H', True)
-
     def show_image(self):
         if self.config.img_display_original:
             self.img_display = numpy.copy(self.img_original)
@@ -870,6 +867,7 @@ class Rompar(object):
         self.img_display_viewport = self.img_display[self.config.view.y:self.config.view.y+self.config.view.h,
                                                      self.config.view.x:self.config.view.x+self.config.view.w]
         cv2.imshow(self.title, self.img_display_viewport)
+
 
     def auto_center(self, x, y):
         '''
