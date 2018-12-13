@@ -20,16 +20,20 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-from rompar.rompar import Rompar, RomparUIOpenCV
+from rompar import Rompar, RomparUIOpenCV, Config
 
 def main():
     import argparse
 
     parser = argparse.ArgumentParser(description='Extract mask ROM image')
-    parser.add_argument('--radius', type=int, help='Use given radius for display, bounded square for detection')
-    parser.add_argument('--bit-thresh-div', type=str, help='Bit set area threshold divisor')
+    parser.add_argument('--radius', type=int,
+                        help='Use given radius for display, '
+                        'bounded square for detection')
+    parser.add_argument('--bit-thresh-div', type=str,
+                        help='Bit set area threshold divisor')
     # Only care about min
-    parser.add_argument('--pix-thresh', type=str, help='Pixel is set threshold minimum')
+    parser.add_argument('--pix-thresh', type=str,
+                        help='Pixel is set threshold minimum')
     parser.add_argument('--dilate', type=str, help='Dilation')
     parser.add_argument('--erode', type=str, help='Erosion')
     parser.add_argument('--debug', action='store_true', help='')
@@ -39,20 +43,23 @@ def main():
     parser.add_argument('rows_per_group', nargs='?', type=int, help='')
     args = parser.parse_args()
 
-    romp = Rompar(args.image, grid_file=args.load,
+    config = Config()
+    if args.radius:
+        config.default_radius = args.radius
+        config.radius = args.radius
+    if args.bit_thresh_div:
+        config.bit_thresh_div = int(args.bit_thresh_div, 0)
+    if args.pix_thresh:
+        config.pix_thresh_min = int(args.pix_thresh, 0)
+    if args.dilate:
+        config.dilate = int(args.dilate, 0)
+    if args.erode:
+        config.erode = int(args.erode, 0)
+
+    romp = Rompar(config,
+                  img_fn=args.image, grid_file=args.load,
                   group_cols=args.cols_per_group,
                   group_rows=args.rows_per_group)
-    if args.radius:
-        romp.config.default_radius = args.radius
-        romp.config.radius = args.radius
-    if args.bit_thresh_div:
-        romp.config.bit_thresh_div = int(args.bit_thresh_div, 0)
-    if args.pix_thresh:
-        romp.config.pix_thresh_min = int(args.pix_thresh, 0)
-    if args.dilate:
-        romp.config.dilate = int(args.dilate, 0)
-    if args.erode:
-        romp.config.erode = int(args.erode, 0)
 
     rompUI = RomparUIOpenCV(romp, debug=args.debug)
     rompUI.run()

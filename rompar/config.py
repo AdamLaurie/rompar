@@ -80,12 +80,21 @@ class Config(object):
         self.radius = 0
         # User supplied radius to be used in lieu of auto calculated
         self.default_radius = None
-        self.threshold = True
 
         self.LSB_Mode = False
 
-        self.font_size = None
+        self.font_size = 1.0
 
         self.view = View()
 
         self.save_dat = False
+
+        self.inverted = False
+
+    def update(self, config):
+        for k, v in config.items():
+            if k == 'view':
+                for kv, vv in v.items():
+                    self.view.__dict__[kv] = vv
+            else:
+                self.__dict__[k] = v
