@@ -1,24 +1,24 @@
 #! /usr/bin/env python
-
 from __future__ import print_function
 from __future__ import division
 
-from rompar import Rompar, Config, ImgXY
+from .. import Rompar, Config, ImgXY
 
 from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
+
+# Parse the ui file once.
+import sys, os.path
 from PyQt5 import uic
+thisdir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(thisdir) # Needed to load ui
+RomparUi, RomparUiBase = uic.loadUiType(os.path.join(thisdir, 'main.ui'),)
+del sys.path[-1] # Remove the now unnecessary path entry
 
-import os.path
-RomparUi, RomparUiBase = uic.loadUiType(
-    os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                 'rompar', 'main_basic.ui')
-)
-
-class RomparQtBasic(QtWidgets.QMainWindow):
+class RomparUiQt(QtWidgets.QMainWindow):
     def __init__(self, romp):
-        super(RomparQtBasic, self).__init__()
+        super(RomparUiQt, self).__init__()
         self.ui = RomparUi()
         self.ui.setupUi(self)
 
@@ -297,7 +297,7 @@ def run(app):
                   group_cols=args.cols_per_group,
                   group_rows=args.rows_per_group)
 
-    window = RomparQtBasic(romp)
+    window = RomparUiQt(romp)
     window.show()
 
     return app.exec_() # Start the event loop.
