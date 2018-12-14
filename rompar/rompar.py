@@ -93,6 +93,8 @@ class Rompar(object):
         self.img_grid = numpy.zeros(self.img_original.shape, numpy.uint8)
         self.img_peephole = numpy.zeros(self.img_original.shape, numpy.uint8)
 
+        self.__process_target_image()
+
         self.data = None
         if grid_json and grid_json['data']:
             if (len(self.grid_points_y)*len(self.grid_points_x)) != \

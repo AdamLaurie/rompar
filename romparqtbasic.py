@@ -3,31 +3,59 @@
 from __future__ import print_function
 from __future__ import division
 
-from rompar import Rompar, Config
-from rompar.romparuiopencv import RomparUIOpenCV
+from rompar import Rompar, Config, ImgXY
 
 from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 from PyQt5 import uic
 
+import os.path
+RomparUi, RomparUiBase = uic.loadUiType(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                 'rompar', 'main_basic.ui')
+)
+
 class RomparQtBasic(QtWidgets.QMainWindow):
     def __init__(self, romp):
         super(RomparQtBasic, self).__init__()
-        uic.loadUi('rompar/main_basic.ui', self)
-        self.setWindowTitle("Rompar")
+        self.ui = RomparUi()
+        self.ui.setupUi(self)
 
         self.romp = romp
         self.config = self.romp.config
 
+        # Make the Image BG selection exclusive.
+        self.baseimage_selection = QtWidgets.QActionGroup(self)
+        self.baseimage_selection.addAction(self.ui.actionImgBGBlank)
+        self.baseimage_selection.addAction(self.ui.actionImgBGOriginal)
+        self.baseimage_selection.addAction(self.ui.actionImgBGTarget)
+        self.baseimage_selection.exclusive = True
+
+        # Note: This depends on the img_display selection order in
+        # rommpar.render_image.
+        if self.config.img_display_blank_image:
+            self.ui.actionImgBGBlank.setChecked(True)
+        elif self.config.img_display_original:
+            self.ui.actionImgBGOriginal.setChecked(True)
+        else:
+            self.ui.actionImgBGTarget.setChecked(True)
+
+        # Set initial state for the various check boxes.
+        self.ui.actionShowGrid.setChecked(self.config.img_display_grid)
+        self.ui.actionShowDataBinary.setChecked(self.config.img_display_binary)
+        self.ui.actionShowPeephole.setChecked(self.config.img_display_peephole)
+        self.ui.actionShowData.setChecked(self.config.img_display_data)
+        self.ui.actionDataInverted.setChecked(self.config.inverted)
+        self.ui.actionDataLSBitMode.setChecked(self.config.LSB_Mode)
+
+        # Create buffers to show Rompar image in UI.
         self.pixmapitem = QtWidgets.QGraphicsPixmapItem()
         self.scene = QtWidgets.QGraphicsScene()
         self.scene.addItem(self.pixmapitem)
 
-        self.statusBar().showMessage("DERP")
-
-        self.graphicsView.setScene(self.scene)
-        self.graphicsView.setAlignment(QtCore.Qt.AlignTop|QtCore.Qt.AlignLeft)
+        self.ui.graphicsView.setScene(self.scene)
+        self.ui.graphicsView.setAlignment(QtCore.Qt.AlignTop|QtCore.Qt.AlignLeft)
 
         # Do initial draw
         self.img = self.romp.render_image(rgb=True)
@@ -40,163 +68,196 @@ class RomparQtBasic(QtWidgets.QMainWindow):
         self.romp.render_image(img_display=self.img, rgb=True)
         self.pixmapitem.setPixmap(QtGui.QPixmap(self.qImg))
 
-    def keyPressEvent(self, event):
-        config = self.config
-        key = event.key()
-        shift = event.modifiers() & QtCore.Qt.ShiftModifier
-
-        if key == QtCore.Qt.Key_A:
-            if shift: # 'A'
-                config.radius += 1
-            else: # 'a'
-                config.radius = max(config.radius-1, 1)
-            self.romp.read_data(force=True)
-            self.display_image()
-
-        elif key == QtCore.Qt.Key_D:
-            if shift: # 'D':
-                config.dilate += 1
-            else: # 'd'
-                config.dilate = max(config.dilate - 1, 0)
-            self.romp.read_data(force=True)
-            self.display_image()
-
-        elif key == QtCore.Qt.Key_E:
-            if shift: # 'E':
-                config.erode += 1
-            else: # 'e'
-                config.erode = max(config.erode - 1, 0)
-            self.romp.read_data(force=True)
-            self.display_image()
-
-        elif key == QtCore.Qt.Key_F:
-            if shift: # 'F'
-                config.font_size += 0.1
-            else: # 'f'
-                config.font_size = max(config.font_size - 0.1, 0)
-            self.romp.read_data(force=True)
-            self.display_image()
-
-        elif key == QtCore.Qt.Key_M:
-            if shift: # 'M'
-                config.bit_thresh_div += 1
-            else: # 'm'
-                config.bit_thresh_div -= 1
-            self.romp.read_data(force=True)
-            self.display_image()
-
-        elif key == QtCore.Qt.Key_Minus:
-            config.pix_thresh_min = max(config.pix_thresh_min - 1, 0x01)
-            self.showTempStatus('Threshold filter %02x' % config.pix_thresh_min)
-            self.romp.read_data(force=True)
-            self.display_image()
-        elif key == QtCore.Qt.Key_Plus:
-            config.pix_thresh_min = min(config.pix_thresh_min + 1, 0xFF)
-            self.showTempStatus('Threshold filter %02x' % config.pix_thresh_min)
-            self.romp.read_data(force=True)
-            self.display_image()
-
-
-        #elif event.key() == QtCore.Qt.Key_Escape:
-        #    self.close()
-
-        elif key == QtCore.Qt.Key_B and not shift:
-            config.img_display_blank_image = not config.img_display_blank_image
-            self.display_image()
-
-        elif key == QtCore.Qt.Key_G and not shift:
-            config.img_display_grid = not config.img_display_grid
-            self.showTempStatus('Display grid:', config.img_display_grid)
-
-        elif key == QtCore.Qt.Key_H and shift:
-            config.img_display_binary = not config.img_display_binary
-            self.showTempStatus('Display binary:', config.img_display_binary)
-
-        elif key == QtCore.Qt.Key_I and not shift:
-            config.inverted = not config.inverted
-            if config.img_display_data:
-                self.display_image()
-            self.showTempStatus('Inverted:', config.inverted)
-
-        elif key == QtCore.Qt.Key_L and not shift:
-            config.LSB_Mode = not config.LSB_Mode
-            if config.img_display_data:
-                self.display_image()
-            self.showTempStatus('LSB self.romp.data mode:', config.LSB_Mode)
-
-        elif key == QtCore.Qt.Key_O and not shift:
-            config.img_display_original = not config.img_display_original
-            self.display_image()
-            self.showTempStatus('display original:', config.img_display_original)
-
-        elif key == QtCore.Qt.Key_P and not shift:
-            config.img_display_peephole = not config.img_display_peephole
-            self.display_image()
-            self.showTempStatus('display peephole:', config.img_display_peephole)
-
-        #elif key == QtCore.Qt.Key_R and shift:
-        #    self.romp.read_data(force=True)
-        #    self.display_image()
-        #    self.statusBar().showMessage("Data re-read from image...", 4000)
-
-        elif key == QtCore.Qt.Key_R and not shift:
-            self.romp.read_data(force=True)
-            self.display_image()
-            self.statusBar().showMessage("Data re-read from image...", 4000)
-
-        elif key == QtCore.Qt.Key_S and not shift:
-            config.img_display_data = not config.img_display_data
-            self.display_image()
-
-        else:
-            super(RomparQtBasic, self).keyPressEvent(event)
-
-    def mousePressEvent(self, event):
-        origin = self.graphicsView.mapFromParent(event.pos())
-        scene = self.graphicsView.mapToScene(origin)
-        img_xy = (scene.x(), scene.y())
-        #self.statusBar().showMessage(
-        #    "event:%d,%d; view:%d,%d; scene: %d,%d" %
-        #    (event.x(), event.y(), origin.x(), origin.y(), scene.x(), scene.y())
-        #)
-
-        if event.button() == QtCore.Qt.LeftButton:
-            if self.romp.data_read:
-                try:
-                    self.romp.toggle_data(self.romp.imgxy_to_bitxy(img_xy))
-                    self.display_image()
-                except IndexError as e:
-                    print("No bit toggled")
-            else:
-                do_autocenter = event.modifiers() & QtCore.Qt.ShiftModifier
-                self.romp.grid_add_vertical_line(img_xy, do_autocenter)
-                self.display_image()
-
-        elif event.button() == QtCore.Qt.RightButton:
-            if self.romp.data_read:
-                try:
-                    tempx, tempy = self.romp.imgxy_to_bitxy(img_xy)
-                    if (tempx, tempy) == (self.romp.Edit_x, self.romp.Edit_y):
-                        self.romp.Edit_x, self.romp.Edit_y = -1, -1
-                    else:
-                        self.romp.Edit_x, self.romp.Edit_y = tempx, tempy
-                    self.display_image()
-                    self.showTempStatus("Edit x,y:",
-                                        self.romp.Edit_x, self.romp.Edit_y)
-                except IndexError as e:
-                    self.showTempStatus("No bit group selected")
-            else:
-                do_autocenter = event.modifiers() & QtCore.Qt.ShiftModifier
-                self.romp.grid_add_horizontal_line(img_xy, do_autocenter)
-                self.display_image()
-
-        else:
-            super(RomparQtBasic, self).mousePressEvent(event)
-
     def showTempStatus(self, *msg):
         full_msg = " ".join((str(part) for part in msg))
         print("Status:", repr(full_msg))
         self.statusBar().showMessage(full_msg, 4000)
+
+
+    ########################################
+    # Slots for QActions from the UI       #
+    ########################################
+
+    @QtCore.pyqtSlot()
+    def on_actionFindHex_triggered(self):
+        FindHexDialog.getDouble(
+            self, "QInputDialog::getDouble()", "Amount:", 37.56, -10000, 10000, 2)
+
+    # Increment/Decrement values
+    @QtCore.pyqtSlot()
+    def on_actionRadiusIncrease_triggered(self):
+        self.config.radius += 1
+        self.romp.read_data(force=True)
+        self.display_image()
+    @QtCore.pyqtSlot()
+    def on_actionRadiusDecrease_triggered(self):
+        self.config.radius = max(config.radius-1, 1)
+        self.romp.read_data(force=True)
+        self.display_image()
+
+    @QtCore.pyqtSlot()
+    def on_actionRadiusIncrease_triggered(self):
+        self.config.dilate += 1
+        self.romp.read_data(force=True)
+        self.display_image()
+    @QtCore.pyqtSlot()
+    def on_actionRadiusDecrease_triggered(self):
+        self.config.dilate = max(config.dilate - 1, 0)
+        self.romp.read_data(force=True)
+        self.display_image()
+
+    @QtCore.pyqtSlot()
+    def on_actionErodeIncrease_triggered(self):
+        self.config.erode += 1
+        self.romp.read_data(force=True)
+        self.display_image()
+    @QtCore.pyqtSlot()
+    def on_actionErodeDecrease_triggered(self):
+        self.config.font_size = max(config.font_size - 0.1, 0)
+        self.romp.read_data(force=True)
+        self.display_image()
+
+    @QtCore.pyqtSlot()
+    def on_actionFontIncrease_triggered(self):
+        self.config.font_size += 0.1
+        self.romp.read_data(force=True)
+        self.display_image()
+    @QtCore.pyqtSlot()
+    def on_actionFontDecrease_triggered(self):
+        self.config.font_size = max(config.font_size - 0.1, 0)
+        self.romp.read_data(force=True)
+        self.display_image()
+
+    @QtCore.pyqtSlot()
+    def on_actionBitThresholdDivisorIncrease_triggered(self):
+        self.config.bit_thresh_div += 1
+        self.romp.read_data(force=True)
+        self.display_image()
+    @QtCore.pyqtSlot()
+    def on_actionBitThresholdDivisorDecrease_triggered(self):
+        self.config.bit_thresh_div -= 1
+        self.romp.read_data(force=True)
+        self.display_image()
+
+    @QtCore.pyqtSlot()
+    def on_actionPixelThresholdMinimumIncrease_triggered(self):
+        self.config.pix_thresh_min = min(self.config.pix_thresh_min + 1, 0xFF)
+        self.showTempStatus('Threshold filter %02x' % self.config.pix_thresh_min)
+        import time
+        t = time.time()
+        self.romp.read_data(force=True)
+        self.display_image()
+        print("REDRAW TIME", time.time()-t)
+    @QtCore.pyqtSlot()
+    def on_actionPixelThresholdMinimumDecrease_triggered(self):
+        self.config.pix_thresh_min = max(self.config.pix_thresh_min - 1, 0x01)
+        self.showTempStatus('Threshold filter %02x' % self.config.pix_thresh_min)
+        self.romp.read_data(force=True)
+        self.display_image()
+
+    # Change the base image of the display.
+    @QtCore.pyqtSlot()
+    def on_actionImgBGBlank_triggered(self):
+        self.config.img_display_blank_image = True
+        self.config.img_display_original = False
+        self.display_image()
+    @QtCore.pyqtSlot()
+    def on_actionImgBGOriginal_triggered(self):
+        self.config.img_display_blank_image = False
+        self.config.img_display_original = True
+        self.display_image()
+    @QtCore.pyqtSlot()
+    def on_actionImgBGTarget_triggered(self):
+        self.config.img_display_blank_image = False
+        self.config.img_display_original = False
+        self.display_image()
+
+    # Toggle Options
+    @QtCore.pyqtSlot(bool)
+    def on_actionShowGrid_triggered(self, checked):
+        self.config.img_display_grid = checked
+        self.display_image()
+
+    @QtCore.pyqtSlot(bool)
+    def on_actionShowDataBinary_triggered(self, checked):
+        self.config.img_display_binary = checked
+        self.display_image()
+
+    @QtCore.pyqtSlot(bool)
+    def on_actionShowPeephole_triggered(self, checked):
+        self.config.img_display_peephole = checked
+        self.display_image()
+
+    @QtCore.pyqtSlot(bool)
+    def on_actionShowData_triggered(self, checked):
+        self.config.img_display_data = checked
+        self.display_image()
+
+    @QtCore.pyqtSlot(bool)
+    def on_actionDataInverted_triggered(self, checked):
+        self.config.inverted = checked
+        if self.config.img_display_data:
+            self.display_image()
+        self.showTempStatus('Inverted:', self.config.inverted)
+
+    @QtCore.pyqtSlot(bool)
+    def on_actionDataLSBitMode_triggered(self, checked):
+        self.config.LSB_Mode = checked
+        if self.config.img_display_data:
+            self.display_image()
+        self.showTempStatus('LSB self.romp.data mode:', self.config.LSB_Mode)
+
+    #@QtCore.pyqtSlot()
+    #def on__triggered(self): # Shift + R
+    #    self.romp.read_data(force=True)
+    #    self.display_image()
+    #    self.showTempStatus("Data re-read from image...")
+
+    #@QtCore.pyqtSlot()
+    #def on__triggered(self): # r
+    #    self.romp.read_data(force=True)
+    #    self.display_image()
+    #    self.showTempStatus("Data re-read from image...")
+
+
+    ############################################
+    # Slots for Mouse Events from Graphicsview #
+    ############################################
+
+    @QtCore.pyqtSlot(QtCore.QPointF, int)
+    def on_graphicsView_sceneLeftClicked(self, qimg_xy, keymods):
+        img_xy = ImgXY(qimg_xy.x(), qimg_xy.y())
+        if self.romp.data_read:
+            try:
+                self.romp.toggle_data(self.romp.imgxy_to_bitxy(img_xy))
+                self.display_image()
+            except IndexError as e:
+                print("No bit toggled")
+        else:
+            do_autocenter = keymods & QtCore.Qt.ShiftModifier
+            self.romp.grid_add_vertical_line(img_xy, do_autocenter)
+            self.display_image()
+
+    @QtCore.pyqtSlot(QtCore.QPointF, int)
+    def on_graphicsView_sceneRightClicked(self, qimg_xy, keymods):
+        img_xy = ImgXY(qimg_xy.x(), qimg_xy.y())
+        if self.romp.data_read:
+            try:
+                bit_xy = self.romp.imgxy_to_bitxy(img_xy)
+                if bit_xy == (self.romp.Edit_x, self.romp.Edit_y):
+                    self.romp.Edit_x, self.romp.Edit_y = -1, -1
+                else:
+                    self.romp.Edit_x, self.romp.Edit_y = bit_xy
+                self.display_image()
+                self.showTempStatus("Edit x,y:",
+                                    self.romp.Edit_x, self.romp.Edit_y)
+            except IndexError as e:
+                self.showTempStatus("No bit group selected")
+        else:
+            do_autocenter = keymods & QtCore.Qt.ShiftModifier
+            self.romp.grid_add_horizontal_line(img_xy, do_autocenter)
+            self.display_image()
+
 
 def run(app):
     import argparse

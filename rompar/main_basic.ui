@@ -31,7 +31,7 @@
      <number>5</number>
     </property>
     <item row="0" column="0">
-     <widget class="QGraphicsView" name="graphicsView">
+     <widget class="RomparGridView" name="graphicsView">
       <property name="alignment">
        <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
       </property>
@@ -48,9 +48,326 @@
      <height>25</height>
     </rect>
    </property>
+   <widget class="QMenu" name="menuFile">
+    <property name="title">
+     <string>File</string>
+    </property>
+    <addaction name="actionSave"/>
+    <addaction name="actionBackupSave"/>
+    <addaction name="actionSaveAs"/>
+   </widget>
+   <widget class="QMenu" name="menuCVOptions">
+    <property name="title">
+     <string>C&amp;V options</string>
+    </property>
+    <addaction name="actionRadiusIncrease"/>
+    <addaction name="actionRadiusDecrease"/>
+    <addaction name="actionDilateIncrease"/>
+    <addaction name="actionDilateDecrease"/>
+    <addaction name="actionErodeIncrease"/>
+    <addaction name="actionErodeDecrease"/>
+    <addaction name="actionFontIncrease"/>
+    <addaction name="actionFontDecrease"/>
+    <addaction name="actionBitThresholdDivisorIncrease"/>
+    <addaction name="actionBitThresholdDivisorDecrease"/>
+    <addaction name="actionPixelThresholdMinimumIncrease"/>
+    <addaction name="actionPixelThresholdMinimumDecrease"/>
+   </widget>
+   <widget class="QMenu" name="menuData">
+    <property name="title">
+     <string>&amp;Data</string>
+    </property>
+    <addaction name="actionDataInverted"/>
+    <addaction name="actionDataLSBitMode"/>
+    <addaction name="actionFindHex"/>
+   </widget>
+   <widget class="QMenu" name="menuDisplay">
+    <property name="title">
+     <string>Displa&amp;y</string>
+    </property>
+    <widget class="QMenu" name="menuBase_Image">
+     <property name="title">
+      <string>Base &amp;Image</string>
+     </property>
+     <addaction name="separator"/>
+     <addaction name="actionImgBGBlank"/>
+     <addaction name="actionImgBGOriginal"/>
+     <addaction name="actionImgBGTarget"/>
+    </widget>
+    <addaction name="menuBase_Image"/>
+    <addaction name="actionShowGrid"/>
+    <addaction name="actionShowDataBinary"/>
+    <addaction name="actionShowPeephole"/>
+    <addaction name="actionShowData"/>
+   </widget>
+   <addaction name="menuFile"/>
+   <addaction name="menuDisplay"/>
+   <addaction name="menuCVOptions"/>
+   <addaction name="menuData"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
+  <action name="actionSave">
+   <property name="text">
+    <string>&amp;Save</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+S</string>
+   </property>
+  </action>
+  <action name="actionRadiusIncrease">
+   <property name="text">
+    <string>Radius +</string>
+   </property>
+   <property name="toolTip">
+    <string>Radius Increase</string>
+   </property>
+   <property name="shortcut">
+    <string>Shift+A</string>
+   </property>
+  </action>
+  <action name="actionRadiusDecrease">
+   <property name="text">
+    <string>Radius -</string>
+   </property>
+   <property name="toolTip">
+    <string>Radius Decrease</string>
+   </property>
+   <property name="shortcut">
+    <string>A</string>
+   </property>
+  </action>
+  <action name="actionDilateIncrease">
+   <property name="text">
+    <string>Dilate +</string>
+   </property>
+   <property name="toolTip">
+    <string>Dilate Increase</string>
+   </property>
+   <property name="shortcut">
+    <string>Shift+D</string>
+   </property>
+  </action>
+  <action name="actionDilateDecrease">
+   <property name="text">
+    <string>Dilate -</string>
+   </property>
+   <property name="toolTip">
+    <string>Dilate Decrease</string>
+   </property>
+   <property name="shortcut">
+    <string>D</string>
+   </property>
+  </action>
+  <action name="actionErodeIncrease">
+   <property name="text">
+    <string>Erode +</string>
+   </property>
+   <property name="toolTip">
+    <string>Erode Increase</string>
+   </property>
+   <property name="shortcut">
+    <string>Shift+E</string>
+   </property>
+  </action>
+  <action name="actionErodeDecrease">
+   <property name="text">
+    <string>Erode -</string>
+   </property>
+   <property name="toolTip">
+    <string>Erode Decrease</string>
+   </property>
+   <property name="shortcut">
+    <string>E</string>
+   </property>
+  </action>
+  <action name="actionFontIncrease">
+   <property name="text">
+    <string>Font +</string>
+   </property>
+   <property name="toolTip">
+    <string>Font Increase</string>
+   </property>
+   <property name="shortcut">
+    <string>Shift+F</string>
+   </property>
+  </action>
+  <action name="actionFontDecrease">
+   <property name="text">
+    <string>Font -</string>
+   </property>
+   <property name="toolTip">
+    <string>Font Decrease</string>
+   </property>
+   <property name="shortcut">
+    <string>F</string>
+   </property>
+  </action>
+  <action name="actionBitThresholdDivisorIncrease">
+   <property name="text">
+    <string>Bit Threshold Divisor +</string>
+   </property>
+   <property name="toolTip">
+    <string>Bit Threshold Divisor Increase</string>
+   </property>
+   <property name="shortcut">
+    <string>Shift+M</string>
+   </property>
+  </action>
+  <action name="actionBitThresholdDivisorDecrease">
+   <property name="text">
+    <string>Bit Threshold Divisor -</string>
+   </property>
+   <property name="toolTip">
+    <string>Bit Threshold Divisor Decrease</string>
+   </property>
+   <property name="shortcut">
+    <string>M</string>
+   </property>
+  </action>
+  <action name="actionPixelThresholdMinimumIncrease">
+   <property name="text">
+    <string>Pixel Threshold Minimum +</string>
+   </property>
+   <property name="toolTip">
+    <string>Pixel Threshold Minimum Increase</string>
+   </property>
+   <property name="shortcut">
+    <string>+, =</string>
+   </property>
+  </action>
+  <action name="actionPixelThresholdMinimumDecrease">
+   <property name="text">
+    <string>Pixel Threshold Minimum -</string>
+   </property>
+   <property name="toolTip">
+    <string>Pixel Threshold Minimum Decrease</string>
+   </property>
+   <property name="shortcut">
+    <string>-</string>
+   </property>
+  </action>
+  <action name="actionImgBGTarget">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Target</string>
+   </property>
+   <property name="shortcut">
+    <string>T</string>
+   </property>
+  </action>
+  <action name="actionImgBGBlank">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Blank</string>
+   </property>
+   <property name="shortcut">
+    <string>B</string>
+   </property>
+  </action>
+  <action name="actionImgBGOriginal">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Original</string>
+   </property>
+   <property name="shortcut">
+    <string>O</string>
+   </property>
+  </action>
+  <action name="actionShowGrid">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>&amp;Grid</string>
+   </property>
+   <property name="shortcut">
+    <string>G</string>
+   </property>
+  </action>
+  <action name="actionShowDataBinary">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Binary</string>
+   </property>
+   <property name="shortcut">
+    <string>Shift+H</string>
+   </property>
+  </action>
+  <action name="actionDataInverted">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>&amp;Inverted</string>
+   </property>
+   <property name="shortcut">
+    <string>I</string>
+   </property>
+  </action>
+  <action name="actionDataLSBitMode">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>&amp;Least Significant Bit Mode</string>
+   </property>
+   <property name="shortcut">
+    <string>L</string>
+   </property>
+  </action>
+  <action name="actionShowPeephole">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Peephole</string>
+   </property>
+   <property name="shortcut">
+    <string>P</string>
+   </property>
+  </action>
+  <action name="actionShowData">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Data</string>
+   </property>
+   <property name="shortcut">
+    <string>S</string>
+   </property>
+  </action>
+  <action name="actionBackupSave">
+   <property name="text">
+    <string>&amp;Backup and Save</string>
+   </property>
+  </action>
+  <action name="actionSaveAs">
+   <property name="text">
+    <string>Save &amp;As</string>
+   </property>
+  </action>
+  <action name="actionFindHex">
+   <property name="text">
+    <string>&amp;Find Hex</string>
+   </property>
+  </action>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>RomparGridView</class>
+   <extends>QGraphicsView</extends>
+   <header>rompargridview.h</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>
