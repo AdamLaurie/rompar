@@ -1,0 +1,11 @@
+Adam Laurie <adam@aperturelabs.com> (http://www.aperturelabs.com)
+    Original Author.
+
+John D. McMaster <JohnDMcMaster@gmail.com>
+    Port to Python, and addional features.
+
+Caitlin Morgan <23minds@gmail.com>
+    Port from openCV 1 to openCV 3, and Python 3 compatibility.
+
+Jessy Diamond Exum <jessy.diamondman@gmail.com>
+    Split API from UI, and ported to Qt5.

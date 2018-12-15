@@ -232,7 +232,7 @@ class Rompar(object):
             # minor reserved for now, but could be used for non-breaking
             'version': (1, 0),
             #'grid_intersections': list(self.iter_grid_intersections()),
-            'data': self.data,
+            'data': ["1" if b else "0" for b in self.data],
             'grid_points_x': self.grid_points_x,
             'grid_points_y': self.grid_points_y,
             'fn': config,

@@ -100,10 +100,20 @@
     <addaction name="actionShowPeephole"/>
     <addaction name="actionShowData"/>
    </widget>
+   <widget class="QMenu" name="menuHelp">
+    <property name="title">
+     <string>&amp;Help</string>
+    </property>
+    <addaction name="actionAbout"/>
+    <addaction name="actionManual"/>
+    <addaction name="actionAuthors"/>
+    <addaction name="actionLicense"/>
+   </widget>
    <addaction name="menuFile"/>
    <addaction name="menuDisplay"/>
    <addaction name="menuCVOptions"/>
    <addaction name="menuData"/>
+   <addaction name="menuHelp"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <action name="actionSave">
@@ -358,6 +368,29 @@
   <action name="actionFindHex">
    <property name="text">
     <string>&amp;Find Hex</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+F, /</string>
+   </property>
+  </action>
+  <action name="actionAbout">
+   <property name="text">
+    <string>&amp;About</string>
+   </property>
+  </action>
+  <action name="actionManual">
+   <property name="text">
+    <string>&amp;Manual</string>
+   </property>
+  </action>
+  <action name="actionLicense">
+   <property name="text">
+    <string>&amp;License</string>
+   </property>
+  </action>
+  <action name="actionAuthors">
+   <property name="text">
+    <string>Aut&amp;hors</string>
    </property>
   </action>
  </widget>

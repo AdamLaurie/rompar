@@ -8,13 +8,24 @@ from PyQt5 import QtCore
 from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
+from .about import RomparAboutDialog
+
 # Parse the ui file once.
 import sys, os.path
 from PyQt5 import uic
 thisdir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(thisdir) # Needed to load ui
-RomparUi, RomparUiBase = uic.loadUiType(os.path.join(thisdir, 'main.ui'),)
+RomparUi, RomparUiBase = uic.loadUiType(os.path.join(thisdir, 'main.ui'))
 del sys.path[-1] # Remove the now unnecessary path entry
+
+def symlinka(target, alias):
+    '''Atomic symlink'''
+    tmp = alias + '_'
+    import os
+    if os.path.exists(tmp):
+        os.unlink(tmp)
+    os.symlink(target, alias + '_')
+    os.rename(tmp, alias)
 
 class RomparUiQt(QtWidgets.QMainWindow):
     def __init__(self, romp):
@@ -24,6 +35,8 @@ class RomparUiQt(QtWidgets.QMainWindow):
 
         self.romp = romp
         self.config = self.romp.config
+        self.saven = 0
+        self.basename = os.path.splitext(self.romp.img_fn)[0]
 
         # Make the Image BG selection exclusive.
         self.baseimage_selection = QtWidgets.QActionGroup(self)
@@ -73,15 +86,82 @@ class RomparUiQt(QtWidgets.QMainWindow):
         print("Status:", repr(full_msg))
         self.statusBar().showMessage(full_msg, 4000)
 
+    def next_save(self):
+        '''Look for next unused save slot by checking grid files'''
+        while True:
+            fn = self.basename + '_s%d.grid' % self.saven
+            if not os.path.exists(fn):
+                break
+            self.saven += 1
+
+    def save_grid(self, backup=False):
+        if backup:
+            self.next_save()
+            fn = self.basename + '_s%d.json' % self.saven
+            symlinka(fn, self.basename + '.json')
+        else:
+            fn = self.basename + '.json'
+
+        with open(fn, 'w') as f:
+            self.romp.write_grid(f)
+        self.showTempStatus('Saved Grid %s (%s)' % \
+                            (fn, "Backed Up" if backup else "No Back Up"))
+
+    def save_data_as_text(self):
+        if self.romp.data_read:
+            '''Write text file like bits sown in GUI. Space between row/cols'''
+            fn = self.basename + '_s%d.txt' % self.saven
+            symlinka(fn, self.basename + '.txt')
+            with open(fn, 'w') as f:
+                self.romp.write_data_as_txt(f)
+            print ('Saved %s' % fn)
+        else:
+            print ('No bits to save')
 
     ########################################
     # Slots for QActions from the UI       #
     ########################################
 
     @QtCore.pyqtSlot()
+    def on_actionAbout_triggered(self):
+        RomparAboutDialog.showAboutRompar(self)
+
+    @QtCore.pyqtSlot()
+    def on_actionManual_triggered(self):
+        RomparAboutDialog.showAboutManual(self)
+
+    @QtCore.pyqtSlot()
+    def on_actionAuthors_triggered(self):
+        RomparAboutDialog.showAboutAuthors(self)
+
+    @QtCore.pyqtSlot()
+    def on_actionLicense_triggered(self):
+        RomparAboutDialog.showAboutLicense(self)
+
+    @QtCore.pyqtSlot()
     def on_actionFindHex_triggered(self):
         FindHexDialog.getDouble(
             self, "QInputDialog::getDouble()", "Amount:", 37.56, -10000, 10000, 2)
+        #self.romp.Search_HEX = [int(h, 16) for h in shx.strip().split(' ')]
+        #print ('searching for', shx.upper())
+
+    @QtCore.pyqtSlot()
+    def on_actionSave_triggered(self):
+        self.save_grid(backup=False)
+
+    @QtCore.pyqtSlot()
+    def on_actionBackupSave_triggered(self):
+        self.save_grid(backup=True)
+
+    @QtCore.pyqtSlot()
+    def on_actionSaveAs_triggered(self):
+        name, filter = QtWidgets.QFileDialog.getSaveFileName(
+            self, 'Save Grid (json) File', self.romp.img_fn, "Grid (*.json)")
+        if (name, filter) == ('', ''):
+            return
+        self.romp.img_fn = name
+        self.basename = os.path.splitext(self.romp.img_fn)[0]
+        self.save_grid(backup=False)
 
     # Increment/Decrement values
     @QtCore.pyqtSlot()
