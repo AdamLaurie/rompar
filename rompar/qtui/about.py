@@ -1,4 +1,3 @@
-import PyQt5.QtCore
 import PyQt5.QtWidgets
 import PyQt5.uic
 
@@ -8,7 +7,7 @@ Ui, UiBase = PyQt5.uic.loadUiType(os.path.join(basedir, 'about.ui'))
 
 class RomparAboutDialog(UiBase):
     def __init__(self, parent=None):
-        super().__init__(parent)
+        super(RomparAboutDialog, self).__init__(parent)
 
         self.ui = Ui()
         self.ui.setupUi(self)
@@ -31,8 +30,7 @@ class RomparAboutDialog(UiBase):
         tabWidget = dialog.ui.tabWidget
         page = dialog.ui.tabWidget.findChild(PyQt5.QtWidgets.QWidget, tabname)
         dialog.ui.tabWidget.setCurrentWidget(page)
-        dialog.exec();
-        #dialog.show()
+        dialog.show()
 
     @classmethod
     def showAboutRompar(cls, parent):

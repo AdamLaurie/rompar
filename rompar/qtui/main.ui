@@ -55,6 +55,8 @@
     <addaction name="actionSave"/>
     <addaction name="actionBackupSave"/>
     <addaction name="actionSaveAs"/>
+    <addaction name="separator"/>
+    <addaction name="actionQuit"/>
    </widget>
    <widget class="QMenu" name="menuCVOptions">
     <property name="title">
@@ -242,7 +244,7 @@
     <string>Pixel Threshold Minimum Increase</string>
    </property>
    <property name="shortcut">
-    <string>+, =</string>
+    <string>=</string>
    </property>
   </action>
   <action name="actionPixelThresholdMinimumDecrease">
@@ -370,7 +372,7 @@
     <string>&amp;Find Hex</string>
    </property>
    <property name="shortcut">
-    <string>Ctrl+F, /</string>
+    <string>/</string>
    </property>
   </action>
   <action name="actionAbout">
@@ -393,6 +395,11 @@
     <string>Aut&amp;hors</string>
    </property>
   </action>
+  <action name="actionQuit">
+   <property name="text">
+    <string>&amp;Quit</string>
+   </property>
+  </action>
  </widget>
  <customwidgets>
   <customwidget>
@@ -402,5 +409,22 @@
   </customwidget>
  </customwidgets>
  <resources/>
- <connections/>
+ <connections>
+  <connection>
+   <sender>actionQuit</sender>
+   <signal>triggered()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>close()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>399</x>
+     <y>299</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
 </ui>

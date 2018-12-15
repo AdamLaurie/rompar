@@ -9,6 +9,7 @@ from PyQt5 import QtGui
 from PyQt5 import QtWidgets
 
 from .about import RomparAboutDialog
+from .findhexdialog import FindHexDialog
 
 # Parse the ui file once.
 import sys, os.path
@@ -140,10 +141,13 @@ class RomparUiQt(QtWidgets.QMainWindow):
 
     @QtCore.pyqtSlot()
     def on_actionFindHex_triggered(self):
-        FindHexDialog.getDouble(
-            self, "QInputDialog::getDouble()", "Amount:", 37.56, -10000, 10000, 2)
-        #self.romp.Search_HEX = [int(h, 16) for h in shx.strip().split(' ')]
-        #print ('searching for', shx.upper())
+        data, okpressed = FindHexDialog.getBytes(self, self.romp.Search_HEX)
+        if okpressed:
+            self.showTempStatus('searching for',":".join((hex(b)[2:] for b in data)))
+            if data == self.romp.Search_HEX:
+                return
+            self.romp.Search_HEX = data
+            self.display_image()
 
     @QtCore.pyqtSlot()
     def on_actionSave_triggered(self):
@@ -171,7 +175,7 @@ class RomparUiQt(QtWidgets.QMainWindow):
         self.display_image()
     @QtCore.pyqtSlot()
     def on_actionRadiusDecrease_triggered(self):
-        self.config.radius = max(config.radius-1, 1)
+        self.config.radius = max(self.config.radius-1, 1)
         self.romp.read_data(force=True)
         self.display_image()
 
@@ -182,7 +186,7 @@ class RomparUiQt(QtWidgets.QMainWindow):
         self.display_image()
     @QtCore.pyqtSlot()
     def on_actionRadiusDecrease_triggered(self):
-        self.config.dilate = max(config.dilate - 1, 0)
+        self.config.dilate = max(self.config.dilate - 1, 0)
         self.romp.read_data(force=True)
         self.display_image()
 
@@ -193,7 +197,7 @@ class RomparUiQt(QtWidgets.QMainWindow):
         self.display_image()
     @QtCore.pyqtSlot()
     def on_actionErodeDecrease_triggered(self):
-        self.config.font_size = max(config.font_size - 0.1, 0)
+        self.config.font_size = max(self.config.font_size - 0.1, 0)
         self.romp.read_data(force=True)
         self.display_image()
 
@@ -204,7 +208,7 @@ class RomparUiQt(QtWidgets.QMainWindow):
         self.display_image()
     @QtCore.pyqtSlot()
     def on_actionFontDecrease_triggered(self):
-        self.config.font_size = max(config.font_size - 0.1, 0)
+        self.config.font_size = max(self.config.font_size - 0.1, 0)
         self.romp.read_data(force=True)
         self.display_image()
 
