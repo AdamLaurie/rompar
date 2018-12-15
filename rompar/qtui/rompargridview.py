@@ -1,6 +1,3 @@
-from __future__ import print_function
-from __future__ import division
-
 from PyQt5.QtCore import Qt, QPointF, pyqtSignal
 from PyQt5 import QtWidgets
 

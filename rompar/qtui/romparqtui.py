@@ -1,7 +1,4 @@
-#! /usr/bin/env python
-from __future__ import print_function
-from __future__ import division
-
+#! /usr/bin/env python3
 from .. import Rompar, Config, ImgXY
 
 from PyQt5 import QtCore
