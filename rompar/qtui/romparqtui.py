@@ -70,8 +70,8 @@ class RomparUiQt(QtWidgets.QMainWindow):
 
         # Do initial draw
         self.img = self.romp.render_image(rgb=True)
-        self.qImg = QtGui.QImage(self.img.data, romp.width, romp.height,
-                            self.romp.numchannels * self.romp.width,
+        self.qImg = QtGui.QImage(self.img.data, romp.img_width, romp.img_height,
+                            self.romp.img_channels * self.romp.img_width,
                             QtGui.QImage.Format_RGB888)
         self.pixmapitem.setPixmap(QtGui.QPixmap(self.qImg))
 
