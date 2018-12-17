@@ -177,12 +177,12 @@ class RomparUiQt(QtWidgets.QMainWindow):
         self.display_image()
 
     @QtCore.pyqtSlot()
-    def on_actionRadiusIncrease_triggered(self):
+    def on_actionDilateIncrease_triggered(self):
         self.config.dilate += 1
         self.romp.read_data()
         self.display_image()
     @QtCore.pyqtSlot()
-    def on_actionRadiusDecrease_triggered(self):
+    def on_actionDilateDecrease_triggered(self):
         self.config.dilate = max(self.config.dilate - 1, 0)
         self.romp.read_data()
         self.display_image()
