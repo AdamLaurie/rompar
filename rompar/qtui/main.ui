@@ -68,8 +68,6 @@
     <addaction name="actionDilateDecrease"/>
     <addaction name="actionErodeIncrease"/>
     <addaction name="actionErodeDecrease"/>
-    <addaction name="actionFontIncrease"/>
-    <addaction name="actionFontDecrease"/>
     <addaction name="actionBitThresholdDivisorIncrease"/>
     <addaction name="actionBitThresholdDivisorDecrease"/>
     <addaction name="actionPixelThresholdMinimumIncrease"/>
@@ -101,6 +99,8 @@
     <addaction name="actionShowDataBinary"/>
     <addaction name="actionShowPeephole"/>
     <addaction name="actionShowData"/>
+    <addaction name="actionFontIncrease"/>
+    <addaction name="actionFontDecrease"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">

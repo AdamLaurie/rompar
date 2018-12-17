@@ -10,10 +10,6 @@ GREEN  = (0x00, 0xff, 0x00)
 YELLOW = (0x00, 0xff, 0xff)
 WHITE  = (0xff, 0xff, 0xff)
 
-# create binary printable string
-def to_bin(x):
-    return ''.join(x & (1 << i) and '1' or '0' for i in range(7, -1, -1))
-
 ImgXY = namedtuple('ImgXY', ['x', 'y'])
 BitXY = namedtuple('BitXY', ['x', 'y'])
 
@@ -149,7 +145,7 @@ class Rompar(object):
         t = time.time()
         for bit_xy in self.iter_bitxy():
             img_xy = self.bitxy_to_imgxy(bit_xy)
-            if self.get_data(bit_xy):
+            if self.get_data(bit_xy, inv=self.config.inverted):
                 color = GREEN
                 if bit_xy.y == self.Edit_y:
                     sx = self.Edit_x - (self.Edit_x % self.group_cols)
@@ -185,8 +181,7 @@ class Rompar(object):
             cv.bitwise_and(img_display, self.img_peephole, img_display)
 
         if self.config.img_display_data:
-            img_hex = self.render_data_layer()
-            cv.bitwise_or(img_display, img_hex, img_display)
+            self.render_data_layer(img_display)
 
         print("render_image time:", time.time()-t)
 
@@ -270,27 +265,6 @@ class Rompar(object):
             cv.erode(self.img_target, (3,3))
         print("process_image time", time.time()-t)
 
-    def get_all_data(self):
-        '''Return data as bytes'''
-        out = ''
-        for column in range(self.bit_width // self.group_cols):
-            for row in range(self.bit_height):
-                thischunk = ''
-                for x in range(self.group_cols):
-                    thisbit = self.__data[x * self.bit_height + row +
-                                          column * self.group_cols *
-                                          self.bit_height]
-                    if self.config.inverted:
-                        thisbit = not thisbit
-                    thischunk += "1" if thisbit else "0"
-                for x in range(self.group_cols // 8):
-                    thisbyte = thischunk[x * 8:x * 8 + 8]
-                    # reverse self.group_cols if we want LSB
-                    if self.config.LSB_Mode:
-                        thisbyte = thisbyte[::-1]
-                    out += chr(int(thisbyte, 2))
-        return out
-
     def bitxy_to_imgxy(self, bit_xy):
         bit_x, bit_y = bit_xy
         if (0 > bit_x >= self.bit_width) or \
@@ -318,9 +292,10 @@ class Rompar(object):
             except ValueError:
                 raise IndexError("No bit at image coordinate (%d, %d)"%img_xy)
 
-    def get_data(self, bit_xy):
+    def get_data(self, bit_xy, inv=False):
         bit_x, bit_y = bit_xy
-        return self.__data[bit_y, bit_x]
+        ret = self.__data[bit_y, bit_x]
+        return (not ret) if inv else (ret)
 
     def set_data(self, bit_xy, val):
         bit_x, bit_y = bit_xy
@@ -377,40 +352,44 @@ class Rompar(object):
         cv.circle(self.img_grid, img_xy, self.config.radius, BLACK, -1)
         cv.circle(self.img_grid, img_xy, self.config.radius, color, thick)
 
-    def render_data_layer(self):
+    def render_data_layer(self, img):
         if not self.data_read:
             return
 
-        img_hex = numpy.zeros(self.img_original.shape, numpy.uint8)
-        dat = self.get_all_data()
-        for row in range(self.bit_height):
-            out = ''
-            outbin = ''
-            for column in range(self.bit_width // self.group_cols):
-                thisbyte = ord(dat[column * self.bit_height + row])
-                hexbyte = '%02X ' % thisbyte
-                out += hexbyte
-                outbin += to_bin(thisbyte) + ' '
-                if self.config.img_display_binary:
-                    disp_data = to_bin(thisbyte)
-                else:
-                    disp_data = hexbyte
-                if self.config.img_display_data:
-                    if self.Search_HEX and self.Search_HEX.count(thisbyte):
-                        textcolor = YELLOW
+        if img is None:
+            img = numpy.zeros(self.img_shape, numpy.uint8)
+        for bit_y in range(self.bit_height):
+            for bit_column in range(self.bit_width // self.group_cols):
+                for column_byte in range(self.group_cols // 8):
+                    byte = ''
+                    bit_group_x = bit_column*self.group_cols + column_byte*8
+                    for bit_x_offset in range(8):
+                        bit = self.get_data(BitXY(bit_group_x+bit_x_offset, bit_y),
+                                            inv=self.config.inverted)
+                        byte += "1" if bit else "0"
+                    if self.config.LSB_Mode:
+                        byte = byte[::-1]
+                    num = int(byte, 2)
+
+                    if self.config.img_display_binary:
+                        disp_data = format(num, '08b')
                     else:
-                        textcolor = WHITE
+                        disp_data = format(num, "02X")
+
+                    textcolor = WHITE
+                    if self.Search_HEX and self.Search_HEX.count(num):
+                        textcolor = YELLOW
 
                     cv.putText(
-                        img_hex,
+                        img,
                         disp_data,
-                        (self._grid_points_x[column * self.group_cols],
-                         self._grid_points_y[row] + (self.config.radius // 2) + 1),
+                        self.bitxy_to_imgxy(BitXY(bit_group_x, bit_y)),
                         cv.FONT_HERSHEY_SIMPLEX,
                         self.config.font_size,
-                        textcolor)
+                        textcolor,
+                        thickness=2)
 
-        return img_hex
+        return img
 
     def grid_add_vertical_line(self, img_xy, do_autocenter=True):
         if do_autocenter and not self.get_pixel(img_xy):

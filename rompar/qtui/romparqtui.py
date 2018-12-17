@@ -277,8 +277,7 @@ class RomparUiQt(QtWidgets.QMainWindow):
     @QtCore.pyqtSlot(bool)
     def on_actionDataInverted_triggered(self, checked):
         self.config.inverted = checked
-        if self.config.img_display_data:
-            self.display_image()
+        self.display_image()
         self.showTempStatus('Inverted:', self.config.inverted)
 
     @QtCore.pyqtSlot(bool)
