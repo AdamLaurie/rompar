@@ -168,56 +168,56 @@ class RomparUiQt(QtWidgets.QMainWindow):
     @QtCore.pyqtSlot()
     def on_actionRadiusIncrease_triggered(self):
         self.config.radius += 1
-        self.romp.read_data(force=True)
+        self.romp.read_data()
         self.display_image()
     @QtCore.pyqtSlot()
     def on_actionRadiusDecrease_triggered(self):
         self.config.radius = max(self.config.radius-1, 1)
-        self.romp.read_data(force=True)
+        self.romp.read_data()
         self.display_image()
 
     @QtCore.pyqtSlot()
     def on_actionRadiusIncrease_triggered(self):
         self.config.dilate += 1
-        self.romp.read_data(force=True)
+        self.romp.read_data()
         self.display_image()
     @QtCore.pyqtSlot()
     def on_actionRadiusDecrease_triggered(self):
         self.config.dilate = max(self.config.dilate - 1, 0)
-        self.romp.read_data(force=True)
+        self.romp.read_data()
         self.display_image()
 
     @QtCore.pyqtSlot()
     def on_actionErodeIncrease_triggered(self):
         self.config.erode += 1
-        self.romp.read_data(force=True)
+        self.romp.read_data()
         self.display_image()
     @QtCore.pyqtSlot()
     def on_actionErodeDecrease_triggered(self):
         self.config.font_size = max(self.config.font_size - 0.1, 0)
-        self.romp.read_data(force=True)
+        self.romp.read_data()
         self.display_image()
 
     @QtCore.pyqtSlot()
     def on_actionFontIncrease_triggered(self):
         self.config.font_size += 0.1
-        self.romp.read_data(force=True)
+        self.romp.read_data()
         self.display_image()
     @QtCore.pyqtSlot()
     def on_actionFontDecrease_triggered(self):
         self.config.font_size = max(self.config.font_size - 0.1, 0)
-        self.romp.read_data(force=True)
+        self.romp.read_data()
         self.display_image()
 
     @QtCore.pyqtSlot()
     def on_actionBitThresholdDivisorIncrease_triggered(self):
         self.config.bit_thresh_div += 1
-        self.romp.read_data(force=True)
+        self.romp.read_data()
         self.display_image()
     @QtCore.pyqtSlot()
     def on_actionBitThresholdDivisorDecrease_triggered(self):
         self.config.bit_thresh_div -= 1
-        self.romp.read_data(force=True)
+        self.romp.read_data()
         self.display_image()
 
     @QtCore.pyqtSlot()
@@ -226,14 +226,14 @@ class RomparUiQt(QtWidgets.QMainWindow):
         self.showTempStatus('Threshold filter %02x' % self.config.pix_thresh_min)
         import time
         t = time.time()
-        self.romp.read_data(force=True)
+        self.romp.read_data()
         self.display_image()
         print("REDRAW TIME", time.time()-t)
     @QtCore.pyqtSlot()
     def on_actionPixelThresholdMinimumDecrease_triggered(self):
         self.config.pix_thresh_min = max(self.config.pix_thresh_min - 1, 0x01)
         self.showTempStatus('Threshold filter %02x' % self.config.pix_thresh_min)
-        self.romp.read_data(force=True)
+        self.romp.read_data()
         self.display_image()
 
     # Change the base image of the display.
@@ -289,13 +289,13 @@ class RomparUiQt(QtWidgets.QMainWindow):
 
     #@QtCore.pyqtSlot()
     #def on__triggered(self): # Shift + R
-    #    self.romp.read_data(force=True)
+    #    self.romp.read_data()
     #    self.display_image()
     #    self.showTempStatus("Data re-read from image...")
 
     #@QtCore.pyqtSlot()
     #def on__triggered(self): # r
-    #    self.romp.read_data(force=True)
+    #    self.romp.read_data()
     #    self.display_image()
     #    self.showTempStatus("Data re-read from image...")
 
@@ -307,13 +307,13 @@ class RomparUiQt(QtWidgets.QMainWindow):
     @QtCore.pyqtSlot(QtCore.QPointF, int)
     def on_graphicsView_sceneLeftClicked(self, qimg_xy, keymods):
         img_xy = ImgXY(qimg_xy.x(), qimg_xy.y())
-        if self.romp.data_read:
+        if True: # Data Edit Mode
             try:
                 self.romp.toggle_data(self.romp.imgxy_to_bitxy(img_xy))
                 self.display_image()
             except IndexError as e:
                 print("No bit toggled")
-        else:
+        else: # Grid Edit Mode
             do_autocenter = keymods & QtCore.Qt.ShiftModifier
             self.romp.grid_add_vertical_line(img_xy, do_autocenter)
             self.display_image()
@@ -321,7 +321,7 @@ class RomparUiQt(QtWidgets.QMainWindow):
     @QtCore.pyqtSlot(QtCore.QPointF, int)
     def on_graphicsView_sceneRightClicked(self, qimg_xy, keymods):
         img_xy = ImgXY(qimg_xy.x(), qimg_xy.y())
-        if self.romp.data_read:
+        if True: # Data Edit Mode
             try:
                 bit_xy = self.romp.imgxy_to_bitxy(img_xy)
                 if bit_xy == (self.romp.Edit_x, self.romp.Edit_y):
@@ -333,7 +333,7 @@ class RomparUiQt(QtWidgets.QMainWindow):
                                     self.romp.Edit_x, self.romp.Edit_y)
             except IndexError as e:
                 self.showTempStatus("No bit group selected")
-        else:
+        else: # Grid Edit Mode
             do_autocenter = keymods & QtCore.Qt.ShiftModifier
             self.romp.grid_add_horizontal_line(img_xy, do_autocenter)
             self.display_image()

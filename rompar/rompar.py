@@ -22,9 +22,6 @@ class Rompar(object):
 
         self.gui = True
 
-        # Have we attempted to decode bits?
-        self.data_read = False
-
         # Pixels between cols and rows
         self.step_x, self.step_y = (0, 0)
         # Number of rows/cols per bit grouping
@@ -118,7 +115,6 @@ class Rompar(object):
         for bit_x in range(self.bit_width):
             for bit_y in range(self.bit_height):
                 self.set_data(BitXY(bit_x, bit_y), next(bit_iter))
-        self.data_read = True
         return True
 
     def redraw_grid(self):
@@ -190,11 +186,7 @@ class Rompar(object):
 
         return img_display
 
-    def read_data(self, force=False):
-        # Bail if data is still valid, and we are not forcing a read.
-        if self.data_read and not force:
-            return
-
+    def read_data(self):
         self.__process_target_image()
 
         # maximum possible value if all pixels are set
@@ -210,8 +202,6 @@ class Rompar(object):
                                       img_xy.x - delta:img_xy.x + delta]
             value = datasub.sum(dtype=int)
             self.set_data(bit_xy, value > thresh)
-
-        self.data_read = True
 
     def get_pixel(self, img_xy):
         img_x, img_y = img_xy
@@ -353,9 +343,6 @@ class Rompar(object):
         cv.circle(self.img_grid, img_xy, self.config.radius, color, thick)
 
     def render_data_layer(self, img):
-        if not self.data_read:
-            return
-
         if img is None:
             img = numpy.zeros(self.img_shape, numpy.uint8)
         for bit_y in range(self.bit_height):
