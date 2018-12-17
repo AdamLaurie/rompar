@@ -168,55 +168,65 @@ class RomparUiQt(QtWidgets.QMainWindow):
     @QtCore.pyqtSlot()
     def on_actionRadiusIncrease_triggered(self):
         self.config.radius += 1
+        self.showTempStatus('Radius %02x' % self.config.radius)
         self.romp.read_data()
         self.display_image()
     @QtCore.pyqtSlot()
     def on_actionRadiusDecrease_triggered(self):
         self.config.radius = max(self.config.radius-1, 1)
+        self.showTempStatus('Radius %02x' % self.config.radius)
         self.romp.read_data()
         self.display_image()
 
     @QtCore.pyqtSlot()
     def on_actionDilateIncrease_triggered(self):
         self.config.dilate += 1
+        self.showTempStatus('Dilate %02x' % self.config.dilate)
         self.romp.read_data()
         self.display_image()
     @QtCore.pyqtSlot()
     def on_actionDilateDecrease_triggered(self):
         self.config.dilate = max(self.config.dilate - 1, 0)
+        self.showTempStatus('Dilate %02x' % self.config.dilate)
         self.romp.read_data()
         self.display_image()
 
     @QtCore.pyqtSlot()
     def on_actionErodeIncrease_triggered(self):
         self.config.erode += 1
+        self.showTempStatus('Erode %02x' % self.config.erode)
         self.romp.read_data()
         self.display_image()
     @QtCore.pyqtSlot()
     def on_actionErodeDecrease_triggered(self):
         self.config.font_size = max(self.config.font_size - 0.1, 0)
+        self.showTempStatus('Erode %02x' % self.config.erode)
         self.romp.read_data()
         self.display_image()
 
     @QtCore.pyqtSlot()
     def on_actionFontIncrease_triggered(self):
         self.config.font_size += 0.1
+        self.showTempStatus('Font Size %02x' % self.config.font_size)
         self.romp.read_data()
         self.display_image()
     @QtCore.pyqtSlot()
     def on_actionFontDecrease_triggered(self):
         self.config.font_size = max(self.config.font_size - 0.1, 0)
+        self.showTempStatus('Font Size %02x' % self.config.font_size)
         self.romp.read_data()
         self.display_image()
 
     @QtCore.pyqtSlot()
     def on_actionBitThresholdDivisorIncrease_triggered(self):
         self.config.bit_thresh_div += 1
+        self.showTempStatus('Threshold div %02x' % self.config.bit_thresh_div)
         self.romp.read_data()
         self.display_image()
     @QtCore.pyqtSlot()
     def on_actionBitThresholdDivisorDecrease_triggered(self):
         self.config.bit_thresh_div -= 1
+        self.showTempStatus('Threshold div %02x' % self.config.bit_thresh_div)
         self.romp.read_data()
         self.display_image()
 
@@ -224,11 +234,8 @@ class RomparUiQt(QtWidgets.QMainWindow):
     def on_actionPixelThresholdMinimumIncrease_triggered(self):
         self.config.pix_thresh_min = min(self.config.pix_thresh_min + 1, 0xFF)
         self.showTempStatus('Threshold filter %02x' % self.config.pix_thresh_min)
-        import time
-        t = time.time()
         self.romp.read_data()
         self.display_image()
-        print("REDRAW TIME", time.time()-t)
     @QtCore.pyqtSlot()
     def on_actionPixelThresholdMinimumDecrease_triggered(self):
         self.config.pix_thresh_min = max(self.config.pix_thresh_min - 1, 0x01)
@@ -239,16 +246,19 @@ class RomparUiQt(QtWidgets.QMainWindow):
     # Change the base image of the display.
     @QtCore.pyqtSlot()
     def on_actionImgBGBlank_triggered(self):
+        self.showTempStatus('BG Image: Blank')
         self.config.img_display_blank_image = True
         self.config.img_display_original = False
         self.display_image()
     @QtCore.pyqtSlot()
     def on_actionImgBGOriginal_triggered(self):
+        self.showTempStatus('BG Image: Original')
         self.config.img_display_blank_image = False
         self.config.img_display_original = True
         self.display_image()
     @QtCore.pyqtSlot()
     def on_actionImgBGTarget_triggered(self):
+        self.showTempStatus('BG Image: Target')
         self.config.img_display_blank_image = False
         self.config.img_display_original = False
         self.display_image()
@@ -256,36 +266,40 @@ class RomparUiQt(QtWidgets.QMainWindow):
     # Toggle Options
     @QtCore.pyqtSlot(bool)
     def on_actionShowGrid_triggered(self, checked):
+        self.showTempStatus('Display Grid', "on" if checked else "off")
         self.config.img_display_grid = checked
         self.display_image()
 
     @QtCore.pyqtSlot(bool)
     def on_actionShowDataBinary_triggered(self, checked):
+        self.showTempStatus('Display Data in', "BIN" if checked else "HEX")
         self.config.img_display_binary = checked
         self.display_image()
 
     @QtCore.pyqtSlot(bool)
     def on_actionShowPeephole_triggered(self, checked):
+        self.showTempStatus('Peephole Mask', "on" if checked else "off")
         self.config.img_display_peephole = checked
         self.display_image()
 
     @QtCore.pyqtSlot(bool)
     def on_actionShowData_triggered(self, checked):
+        self.showTempStatus('Display Data', "on" if checked else "off")
         self.config.img_display_data = checked
         self.display_image()
 
     @QtCore.pyqtSlot(bool)
     def on_actionDataInverted_triggered(self, checked):
+        self.showTempStatus('Display %sinverted' % ("" if checked else "NOT "))
         self.config.inverted = checked
         self.display_image()
-        self.showTempStatus('Inverted:', self.config.inverted)
 
     @QtCore.pyqtSlot(bool)
     def on_actionDataLSBitMode_triggered(self, checked):
+        self.showTempStatus('Data', "LSB" if checked else "MSB")
         self.config.LSB_Mode = checked
         if self.config.img_display_data:
             self.display_image()
-        self.showTempStatus('LSB self.romp.data mode:', self.config.LSB_Mode)
 
     #@QtCore.pyqtSlot()
     #def on__triggered(self): # Shift + R
