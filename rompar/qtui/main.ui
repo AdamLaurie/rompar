@@ -80,6 +80,7 @@
     <addaction name="actionDataInverted"/>
     <addaction name="actionDataLSBitMode"/>
     <addaction name="actionFindHex"/>
+    <addaction name="actionSaveDataAsText"/>
    </widget>
    <widget class="QMenu" name="menuDisplay">
     <property name="title">
@@ -361,6 +362,9 @@
    <property name="text">
     <string>&amp;Backup and Save</string>
    </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+S</string>
+   </property>
   </action>
   <action name="actionSaveAs">
    <property name="text">
@@ -398,6 +402,14 @@
   <action name="actionQuit">
    <property name="text">
     <string>&amp;Quit</string>
+   </property>
+  </action>
+  <action name="actionSaveDataAsText">
+   <property name="text">
+    <string>&amp;Export Data as Text</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+E</string>
    </property>
   </action>
  </widget>

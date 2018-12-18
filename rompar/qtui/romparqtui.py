@@ -1,4 +1,8 @@
 #! /usr/bin/env python3
+import traceback
+import pathlib
+import json
+
 from .. import Rompar, Config, ImgXY
 
 from PyQt5 import QtCore
@@ -16,25 +20,26 @@ sys.path.append(thisdir) # Needed to load ui
 RomparUi, RomparUiBase = uic.loadUiType(os.path.join(thisdir, 'main.ui'))
 del sys.path[-1] # Remove the now unnecessary path entry
 
-def symlinka(target, alias):
-    '''Atomic symlink'''
-    tmp = alias + '_'
-    import os
-    if os.path.exists(tmp):
-        os.unlink(tmp)
-    os.symlink(target, alias + '_')
-    os.rename(tmp, alias)
-
 class RomparUiQt(QtWidgets.QMainWindow):
-    def __init__(self, romp):
+    def __init__(self, config, *, img_fn=None, grid_fn=None,
+                 group_cols=0, group_rows=0):
         super(RomparUiQt, self).__init__()
         self.ui = RomparUi()
         self.ui.setupUi(self)
 
-        self.romp = romp
-        self.config = self.romp.config
+        self.config = config
+        self.grid_fn = pathlib.Path(grid_fn).expanduser().absolute() \
+                       if grid_fn else None
+        grid_json = None
+        if self.grid_fn:
+            with self.grid_fn.open('r') as gridfile:
+                print("loading", self.grid_fn)
+                grid_json = json.load(gridfile)
+
+        self.romp = Rompar(config,
+                           img_fn=img_fn, grid_json=grid_json,
+                           group_cols=group_cols, group_rows=group_rows)
         self.saven = 0
-        self.basename = os.path.splitext(self.romp.img_fn)[0]
 
         # Make the Image BG selection exclusive.
         self.baseimage_selection = QtWidgets.QActionGroup(self)
@@ -70,9 +75,10 @@ class RomparUiQt(QtWidgets.QMainWindow):
 
         # Do initial draw
         self.img = self.romp.render_image(rgb=True)
-        self.qImg = QtGui.QImage(self.img.data, romp.img_width, romp.img_height,
-                            self.romp.img_channels * self.romp.img_width,
-                            QtGui.QImage.Format_RGB888)
+        self.qImg = QtGui.QImage(self.img.data,
+                                 self.romp.img_width, self.romp.img_height,
+                                 self.romp.img_channels * self.romp.img_width,
+                                 QtGui.QImage.Format_RGB888)
         self.pixmapitem.setPixmap(QtGui.QPixmap(self.qImg))
 
     def display_image(self):
@@ -87,34 +93,40 @@ class RomparUiQt(QtWidgets.QMainWindow):
     def next_save(self):
         '''Look for next unused save slot by checking grid files'''
         while True:
-            fn = self.basename + '_s%d.grid' % self.saven
-            if not os.path.exists(fn):
-                break
+            fn = self.grid_fn.with_suffix(".s%d.json" % self.saven)
+            if not fn.is_file():
+                return fn
             self.saven += 1
 
     def save_grid(self, backup=False):
+        backup_fn = None
         if backup:
-            self.next_save()
-            fn = self.basename + '_s%d.json' % self.saven
-            symlinka(fn, self.basename + '.json')
-        else:
-            fn = self.basename + '.json'
+            backup_fn = self.next_save()
+            self.grid_fn.rename(backup_fn)
 
-        with open(fn, 'w') as f:
-            self.romp.write_grid(f)
-        self.showTempStatus('Saved Grid %s (%s)' % \
-                            (fn, "Backed Up" if backup else "No Back Up"))
+        try:
+            with self.grid_fn.open('w') as f:
+                json.dump(self.romp.dump_grid_configuration(),
+                          f, indent=4, sort_keys=True)
+            self.showTempStatus('Saved Grid %s (%s)' % \
+                                (str(self.grid_fn),
+                                 ("Backed Up: %s" % str(backup_fn)) if backup
+                                 else "No Back Up"))
+        except Exception as e:
+            QtWidgets.QMessageBox.warning(self, "Error Saving '%s'"%(self.grid_fn),
+                                          traceback.format_exc())
+            return False
+        return True
 
-    def save_data_as_text(self):
-        if self.romp.data_read:
-            '''Write text file like bits sown in GUI. Space between row/cols'''
-            fn = self.basename + '_s%d.txt' % self.saven
-            symlinka(fn, self.basename + '.txt')
-            with open(fn, 'w') as f:
+    def save_data_as_text(self, filepath):
+        try:
+            with filepath.open('w') as f:
                 self.romp.write_data_as_txt(f)
-            print ('Saved %s' % fn)
-        else:
-            print ('No bits to save')
+        except Exception as e:
+            QtWidgets.QMessageBox.warning(self,"Error Saving '%s'"%(filepath),
+                                          traceback.format_exc())
+            return False
+        return True
 
     ########################################
     # Slots for QActions from the UI       #
@@ -157,12 +169,27 @@ class RomparUiQt(QtWidgets.QMainWindow):
     @QtCore.pyqtSlot()
     def on_actionSaveAs_triggered(self):
         name, filter = QtWidgets.QFileDialog.getSaveFileName(
-            self, 'Save Grid (json) File', self.romp.img_fn, "Grid (*.json)")
+            self, 'Save Grid (json) File', str(self.grid_fn), "Grid (*.json)")
         if (name, filter) == ('', ''):
             return
-        self.romp.img_fn = name
-        self.basename = os.path.splitext(self.romp.img_fn)[0]
-        self.save_grid(backup=False)
+        old_grid_fn = self.grid_fn
+        self.grid_fn = pathlib.Path(name).expanduser().absolute()
+        if self.save_grid(backup=False):
+            self.saven = 0
+        else:
+            self.grid_fn = old_grid_fn # Restore old value if save as failed.
+
+    @QtCore.pyqtSlot()
+    def on_actionSaveDataAsText_triggered(self):
+        fname, filter = QtWidgets.QFileDialog.getSaveFileName(
+            self, 'Save Data as txt file',
+            str(self.grid_fn.with_suffix('.txt')), "Text (*.txt)")
+        if (fname, filter) == ('', ''):
+            return
+        filepath = pathlib.Path(fname).expanduser().absolute()
+        if self.save_data_as_text(filepath):
+            self.showTempStatus('Exported data to', str(filepath))
+
 
     # Increment/Decrement values
     @QtCore.pyqtSlot()
@@ -352,7 +379,6 @@ class RomparUiQt(QtWidgets.QMainWindow):
             self.romp.grid_add_horizontal_line(img_xy, do_autocenter)
             self.display_image()
 
-
 def run(app):
     import argparse
     parser = argparse.ArgumentParser(description='Extract mask ROM image')
@@ -386,12 +412,10 @@ def run(app):
     if args.erode:
         config.erode = int(args.erode, 0)
 
-    romp = Rompar(config,
-                  img_fn=args.image, grid_file=args.load,
-                  group_cols=args.cols_per_group,
-                  group_rows=args.rows_per_group)
-
-    window = RomparUiQt(romp)
+    window = RomparUiQt(config,
+                        img_fn=args.image, grid_fn=args.load,
+                        group_cols=args.cols_per_group,
+                        group_rows=args.rows_per_group)
     window.show()
 
     return app.exec_() # Start the event loop.

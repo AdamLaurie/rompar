@@ -3,6 +3,7 @@ import cv2 as cv
 import json
 import numpy
 import time
+import pathlib
 
 BLACK  = (0x00, 0x00, 0x00)
 BLUE   = (0xff, 0x00, 0x00)
@@ -14,13 +15,11 @@ ImgXY = namedtuple('ImgXY', ['x', 'y'])
 BitXY = namedtuple('BitXY', ['x', 'y'])
 
 class Rompar(object):
-    def __init__(self, config, img_fn=None, grid_file=None,
+    def __init__(self, config, *, img_fn=None, grid_json=None,
                  group_cols=0, group_rows=0):
-        self.img_fn = img_fn
-        self.grid_file = grid_file
+        self.img_fn = pathlib.Path(img_fn).expanduser().absolute() \
+                      if img_fn else None
         self.config = config
-
-        self.gui = True
 
         # Pixels between cols and rows
         self.step_x, self.step_y = (0, 0)
@@ -36,11 +35,7 @@ class Rompar(object):
         self._grid_points_x = []
         self._grid_points_y = []
 
-        grid_json = None
-        if self.grid_file:
-            with open(self.grid_file, 'r') as gridfile:
-                print("loading", self.grid_file)
-                grid_json = json.load(gridfile)
+        if grid_json:
             if self.img_fn is None:
                 self.img_fn = grid_json.get('img_fn')
             if self.group_cols is None:
@@ -73,7 +68,7 @@ class Rompar(object):
             raise Exception("rows required")
 
         #load img as numpy ndarray dimensions (height, width, channels)
-        self.img_original = cv.imread(self.img_fn, cv.IMREAD_COLOR)
+        self.img_original = cv.imread(str(self.img_fn), cv.IMREAD_COLOR)
         print ('Image is %dx%d; %d channels' %
                (self.img_width, self.img_height, self.img_channels))
 
@@ -118,9 +113,6 @@ class Rompar(object):
         return True
 
     def redraw_grid(self):
-        if not self.gui:
-            return
-
         t = time.time()
         self.img_grid.fill(0)
         self.img_peephole.fill(0)
@@ -211,13 +203,13 @@ class Rompar(object):
         for bit_y in range(self.bit_height):
             if bit_y and bit_y % self.group_rows == 0:
                 f.write('\n') # Put a space between row gaps
-            for biy_x in range(self.bit_width):
+            for bit_x in range(self.bit_width):
                 if bit_x and bit_x % self.group_cols == 0:
                     f.write(' ')
                 f.write("1" if self.get_data(BitXY(bit_x, bit_y)) else "0")
             f.write('\n') # Newline afer every row
 
-    def write_grid(self, f):
+    def dump_grid_configuration(self):
         config = dict(self.config.__dict__)
         config['view'] = config['view'].__dict__
 
@@ -239,8 +231,7 @@ class Rompar(object):
             'config': config,
             'img_fn': self.img_fn,
             }
-
-        json.dump(j, f, indent=4, sort_keys=True)
+        return j
 
     def __process_target_image(self):
         #self.config.pix_thresh_min, self.config.dilate, self.config.erode
