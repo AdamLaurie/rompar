@@ -1,5 +1,6 @@
 from collections import namedtuple
 import cv2 as cv
+import os.path
 import json
 import numpy
 import time
@@ -16,7 +17,7 @@ BitXY = namedtuple('BitXY', ['x', 'y'])
 
 class Rompar(object):
     def __init__(self, config, *, img_fn=None, grid_json=None,
-                 group_cols=0, group_rows=0):
+                 group_cols=0, group_rows=0, grid_dir_path=None):
         self.img_fn = pathlib.Path(img_fn).expanduser().absolute() \
                       if img_fn else None
         self.config = config
@@ -37,7 +38,22 @@ class Rompar(object):
 
         if grid_json:
             if self.img_fn is None:
-                self.img_fn = grid_json.get('img_fn')
+                # TODO: If absolute paths are supported in the json
+                # file, then saving the grid file should probably not
+                # write in a relative path. For now, all img_fn paths
+                # should be relative.
+                self.img_fn = pathlib.Path(grid_json.get('img_fn'))
+                if not self.img_fn.is_absolute():
+                    # Eventually, it would be nice if this class was
+                    # unaware of the file system so it can be used
+                    # with any data source (Files, Databases, etc) in
+                    # any system configuration (desktop, web backend,
+                    # etc). But that is not the case yet, so the
+                    # current grid file's directory is necessary to
+                    # calculate the relative path of img_fn when
+                    # saving and loading a grid's configuration.
+                    self.img_fn = grid_dir_path / self.img_fn
+                    self.img_fn = self.img_fn.resolve()
             if self.group_cols is None:
                 self.group_cols = grid_json.get('group_cols')
                 self.group_rows = grid_json.get('group_rows')
@@ -209,9 +225,12 @@ class Rompar(object):
                 f.write("1" if self.get_data(BitXY(bit_x, bit_y)) else "0")
             f.write('\n') # Newline afer every row
 
-    def dump_grid_configuration(self):
+    def dump_grid_configuration(self, grid_dir_path):
         config = dict(self.config.__dict__)
         config['view'] = config['view'].__dict__
+
+        # Store the img path relative to the grid file
+        img_fn_rel = os.path.relpath(str(self.img_fn), str(grid_dir_path))
 
         # XXX: this first cut is partly due to ease of converting old DB
         # Try to move everything non-volatile into config object
@@ -229,7 +248,7 @@ class Rompar(object):
             'group_cols': self.group_cols,
             'group_rows': self.group_rows,
             'config': config,
-            'img_fn': self.img_fn,
+            'img_fn': img_fn_rel,
             }
         return j
 

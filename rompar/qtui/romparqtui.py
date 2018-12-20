@@ -31,14 +31,17 @@ class RomparUiQt(QtWidgets.QMainWindow):
         self.grid_fn = pathlib.Path(grid_fn).expanduser().absolute() \
                        if grid_fn else None
         grid_json = None
+        grid_dir_path = None
         if self.grid_fn:
             with self.grid_fn.open('r') as gridfile:
                 print("loading", self.grid_fn)
                 grid_json = json.load(gridfile)
+            grid_dir_path = self.grid_fn.parent
 
         self.romp = Rompar(config,
                            img_fn=img_fn, grid_json=grid_json,
-                           group_cols=group_cols, group_rows=group_rows)
+                           group_cols=group_cols, group_rows=group_rows,
+                           grid_dir_path=grid_dir_path)
         self.saven = 0
 
         # Make the Image BG selection exclusive.
@@ -106,13 +109,15 @@ class RomparUiQt(QtWidgets.QMainWindow):
 
         try:
             with self.grid_fn.open('w') as f:
-                json.dump(self.romp.dump_grid_configuration(),
+                json.dump(self.romp.dump_grid_configuration(self.grid_fn.parent),
                           f, indent=4, sort_keys=True)
             self.showTempStatus('Saved Grid %s (%s)' % \
                                 (str(self.grid_fn),
                                  ("Backed Up: %s" % str(backup_fn)) if backup
                                  else "No Back Up"))
         except Exception as e:
+            if backup_fn:
+                backup_fn.rename(self.grid_fn) # Restore backup
             QtWidgets.QMessageBox.warning(self, "Error Saving '%s'"%(self.grid_fn),
                                           traceback.format_exc())
             return False
