@@ -1,29 +1,40 @@
-rompar
-======
+# rompar
 
 Masked ROM optical data extraction tool.
 
 Latest version:
 
   https://github.com/AdamLaurie/rompar
-  https://github.com/SiliconAnalysis/rompar
 
-Original version by Adam Laurie, but significant changes by John McMaster
+Original version by Adam Laurie, but significant changes by John
+McMaster, Caitlin Morgan, and Jessy Exum.
 
 
-Original message:
+Rompar is an interactive tool for extracting bianry data out of mask
+ROM images. The computer vision method implemented is rather simple,
+but has proven useful in several projects. There is still a lot that
+can be added to rompar, and pull requests are welcome.
 
-Note that this initial version is very much a quick-and-dirty 'see if this method is useful'
-kind of tool. If it is, hopefully it will evolve into something pretty and elegant!
+## Usage
 
-  usage: rompar.py <IMAGE> <BITS PER GROUP> <ROWS PER GROUP> [GRID FILE]
+To start a new project out of a mask rom image:
 
-Hit 'h' when the image has focus to produce some keystroke help in the calling window.
+```rompar.py <IMAGE> <BITS PER GROUP> <ROWS PER GROUP>```
 
-For a walked through example, read this:
+To open an existing rompar grid project:
 
-  http://adamsblog.rfidiot.org/2013/01/fun-with-masked-roms.html
+```rompar.py --load <GRIDFILE>```
+
+When the rompar python package is installed, `romparqt` should be used
+instead of `rompar.py`.
+
+The new QT ui differs greatly from the original project, but the
+[original walked through example](http://adamsblog.rfidiot.org/2013/01/fun-with-masked-roms.html)
+is still useful for seeing what Rompar can do:
+
+For more information, check the tutorial in the help menu, and the
+shortcuts on the various menu items inside of Rompar.
+
 
 Enjoy!
-Adam
-
+Adam & Rompar contributors.
