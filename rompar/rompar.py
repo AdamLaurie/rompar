@@ -23,6 +23,9 @@ class Rompar(object):
                       if img_fn else None
         self.config = config
 
+        # Allow skipping of process_target_image if nothing changed.
+        self.__process_cache = None
+
         # Pixels between cols and rows
         self.step_x, self.step_y = (0, 0)
         # Number of rows/cols per bit grouping
@@ -262,7 +265,12 @@ class Rompar(object):
         return j
 
     def __process_target_image(self):
-        #self.config.pix_thresh_min, self.config.dilate, self.config.erode
+        new_cache_value = (self.config.pix_thresh_min,
+                           self.config.dilate, self.config.erode)
+        if self.__process_cache == new_cache_value:
+            return False
+        self.__process_cache = new_cache_value
+
         t = time.time()
         cv.dilate(self.img_target, (3,3))
         cv.threshold(self.img_original, self.config.pix_thresh_min,
