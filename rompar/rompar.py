@@ -9,6 +9,7 @@ import pathlib
 BLACK  = (0x00, 0x00, 0x00)
 BLUE   = (0xff, 0x00, 0x00)
 GREEN  = (0x00, 0xff, 0x00)
+RED    = (0x00, 0x00, 0xff)
 YELLOW = (0x00, 0xff, 0xff)
 WHITE  = (0xff, 0xff, 0xff)
 
@@ -149,16 +150,20 @@ class Rompar(object):
         t = time.time()
         for bit_xy in self.iter_bitxy():
             img_xy = self.bitxy_to_imgxy(bit_xy)
-            if self.get_data(bit_xy, inv=self.config.inverted):
-                color = GREEN
-                if bit_xy.y == self.Edit_y:
-                    sx = self.Edit_x - (self.Edit_x % self.group_cols)
-                    if sx <= bit_xy.x < (sx + self.group_cols):
-                        color = WHITE # highlight if we're in edit mode
+            sx = self.Edit_x - (self.Edit_x % self.group_cols)
+            if bit_xy.x == self.Edit_x or\
+               (bit_xy.y == self.Edit_y and \
+                (sx <= bit_xy.x < (sx + self.group_cols))):
+                if self.get_data(bit_xy, inv=self.config.inverted):
+                    color = WHITE # highlight if we're in edit mode
+                else:
+                    color = RED
             else:
-                color = BLUE
+                if self.get_data(bit_xy, inv=self.config.inverted):
+                    color = GREEN
+                else:
+                    color = BLUE
 
-            print(img_xy)
             self.grid_draw_circle(img_xy, color, thick=2)
             cv.circle(self.img_peephole, img_xy, int(self.config.radius) + 1,
                       WHITE, -1)
