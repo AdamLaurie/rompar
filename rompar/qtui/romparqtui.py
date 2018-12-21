@@ -226,6 +226,25 @@ class RomparUiQt(QtWidgets.QMainWindow):
             self.showTempStatus('Exported data to', str(filepath))
 
     @QtCore.pyqtSlot()
+    def on_actionRedrawGrid_triggered(self):
+        self.romp.redraw_grid()
+        self.display_image()
+        self.showTempStatus('Grid Redrawn')
+
+    @QtCore.pyqtSlot()
+    def on_actionRereadData_triggered(self):
+        button = QtWidgets.QMessageBox.question(
+            self, 'Re-read Data?',
+            "Are you sure you want to reread the data? "
+            "Any manual edits will be lost.",
+            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+            QtWidgets.QMessageBox.No)
+        if button == QtWidgets.QMessageBox.Yes:
+            self.romp.read_data()
+            self.display_image()
+            self.showTempStatus('Re-read data.')
+
+    @QtCore.pyqtSlot()
     def on_actionToggleMode_triggered(self):
         self.ui.buttonToggleMode.setChecked(not self.ui.buttonToggleMode.isChecked())
 
@@ -383,18 +402,6 @@ class RomparUiQt(QtWidgets.QMainWindow):
         self.config.LSB_Mode = checked
         if self.config.img_display_data:
             self.display_image()
-
-    #@QtCore.pyqtSlot()
-    #def on__triggered(self): # Shift + R
-    #    self.romp.read_data()
-    #    self.display_image()
-    #    self.showTempStatus("Data re-read from image...")
-
-    #@QtCore.pyqtSlot()
-    #def on__triggered(self): # r
-    #    self.romp.read_data()
-    #    self.display_image()
-    #    self.showTempStatus("Data re-read from image...")
 
 
     ############################################

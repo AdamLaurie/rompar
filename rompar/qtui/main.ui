@@ -103,6 +103,7 @@
     <addaction name="actionDataLSBitMode"/>
     <addaction name="actionFindHex"/>
     <addaction name="actionSaveDataAsText"/>
+    <addaction name="actionRereadData"/>
    </widget>
    <widget class="QMenu" name="menuDisplay">
     <property name="title">
@@ -124,6 +125,7 @@
     <addaction name="actionShowData"/>
     <addaction name="actionFontIncrease"/>
     <addaction name="actionFontDecrease"/>
+    <addaction name="actionRedrawGrid"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
@@ -480,6 +482,22 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+Space</string>
+   </property>
+  </action>
+  <action name="actionRedrawGrid">
+   <property name="text">
+    <string>&amp;Redraw Grid</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+R</string>
+   </property>
+  </action>
+  <action name="actionRereadData">
+   <property name="text">
+    <string>Re-&amp;read Data</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+R</string>
    </property>
   </action>
  </widget>
