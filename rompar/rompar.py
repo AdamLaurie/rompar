@@ -71,9 +71,9 @@ class Rompar(object):
                 self.step_y = self._grid_points_y[1] - self._grid_points_y[0]
             if not self.config.default_radius:
                 if self.step_x:
-                    self.config.radius = self.step_x / 3
+                    self.config.radius = int(self.step_x / 3)
                 else:
-                    self.config.radius = self.step_y / 3
+                    self.config.radius = int(self.step_y / 3)
 
         # Then need critical args
         if not self.img_fn:
@@ -158,8 +158,10 @@ class Rompar(object):
             else:
                 color = BLUE
 
+            print(img_xy)
             self.grid_draw_circle(img_xy, color, thick=2)
-            cv.circle(self.img_peephole, img_xy, self.config.radius + 1, WHITE, -1)
+            cv.circle(self.img_peephole, img_xy, int(self.config.radius) + 1,
+                      WHITE, -1)
         print("grid circle redraw time:", time.time()-t)
 
     def render_image(self, img_display=None, rgb=False):
@@ -194,17 +196,19 @@ class Rompar(object):
 
         return img_display
 
-    def read_data(self):
-        self.__process_target_image()
+    def read_data(self, bit_pairs=None):
+        process_redone = self.__process_target_image()
+        if process_redone or bit_pairs is None:
+            bit_pairs = self.iter_bitxy()
 
         # maximum possible value if all pixels are set
         maxval = (self.config.radius ** 2) * 255
         print('read_data: max aperture value:', maxval)
         thresh = (maxval / self.config.bit_thresh_div)
-        delta = (self.config.radius // 2)
+        delta = int(self.config.radius // 2)
 
         print('read_data: computing')
-        for bit_xy in self.iter_bitxy():
+        for bit_xy in bit_pairs:
             img_xy = self.bitxy_to_imgxy(bit_xy)
             datasub = self.img_target[img_xy.y - delta:img_xy.y + delta,
                                       img_xy.x - delta:img_xy.x + delta]
@@ -264,6 +268,7 @@ class Rompar(object):
         if self.config.erode:
             cv.erode(self.img_target, (3,3))
         print("process_image time", time.time()-t)
+        return True
 
     def bitxy_to_imgxy(self, bit_xy):
         bit_x, bit_y = bit_xy
@@ -349,8 +354,8 @@ class Rompar(object):
     #        self.grid_draw_circle((img_x, gridy), BLUE)
 
     def grid_draw_circle(self, img_xy, color, thick=1):
-        cv.circle(self.img_grid, img_xy, self.config.radius, BLACK, -1)
-        cv.circle(self.img_grid, img_xy, self.config.radius, color, thick)
+        cv.circle(self.img_grid, img_xy, int(self.config.radius), BLACK, -1)
+        cv.circle(self.img_grid, img_xy, int(self.config.radius), color, thick)
 
     def render_data_layer(self, img):
         if img is None:
@@ -388,6 +393,38 @@ class Rompar(object):
 
         return img
 
+    def _add_bit_column(self, img_x):
+        img_x = int(img_x)
+        if img_x in self._grid_points_x:
+            return
+
+        for i, x in enumerate(self._grid_points_x):
+            if img_x < x:
+                self._grid_points_x.insert(i, img_x)
+                break
+        else:
+            i = len(self._grid_points_x)
+            self._grid_points_x.append(img_x)
+
+        self.__data = numpy.insert(self.__data, i, False, axis = 1)
+        self.read_data(((i, tmp_y) for tmp_y in range(self.bit_height)))
+
+    def _add_bit_row(self, img_y):
+        if img_y in self._grid_points_y:
+            return
+
+        for i, y in enumerate(self._grid_points_y):
+            if img_y < y:
+                self._grid_points_y.insert(i, img_y)
+                break
+        else:
+            i = len(self._grid_points_y)
+            self._grid_points_y.append(img_y)
+
+        self.__data = numpy.insert(self.__data, i, False, axis = 0)
+        self.read_data(((tmp_x, i) for tmp_x in range(self.bit_width)))
+
+
     def grid_add_vertical_line(self, img_xy, do_autocenter=True):
         if do_autocenter and not self.get_pixel(img_xy):
             print ('autocenter: miss!')
@@ -402,22 +439,23 @@ class Rompar(object):
 
         # only draw a single line if this is the first one
         if self.bit_width == 0 or self.group_cols == 1:
-            self._grid_points_x.append(img_x)
+            self._add_bit_column(img_x)
         else:
             # set up auto draw
+            start_i = 0
             if self.bit_width == 1:
                 # use a float to reduce rounding errors
                 self.step_x = (img_x - self._grid_points_x[0]) / \
                               (self.group_cols - 1)
                 img_x = self._grid_points_x[0]
-                self._grid_points_x = []
+                start_i = 1
                 self.update_radius()
             # draw a full set of self.group_cols
-            for x in range(self.group_cols):
+            for x in range(start_i, self.group_cols):
                 draw_x = int(img_x + x * self.step_x)
                 if draw_x > self.img_width:
                     break
-                self._grid_points_x.append(draw_x)
+                self._add_bit_column(draw_x)
 
     def grid_add_horizontal_line(self, img_xy, do_autocenter=True):
         if do_autocenter and not self.get_pixel(img_xy):
@@ -433,23 +471,24 @@ class Rompar(object):
 
         # only draw a single line if this is the first one
         if self.bit_height == 0 or self.group_rows == 1:
-            self._grid_points_y.append(img_y)
+            self._add_bit_row(img_y)
         else:
             # set up auto draw
+            start_i = 0
             if self.bit_height == 1:
                 # use a float to reduce rounding errors
                 self.step_y = (img_y - self._grid_points_y[0]) / \
                               (self.group_rows - 1)
                 img_y = self._grid_points_y[0]
-                self._grid_points_y = []
+                start_i = 1
                 self.update_radius()
             # draw a full set of self.group_rows
-            for y in range(self.group_rows):
+            for y in range(start_i, self.group_rows):
                 draw_y = int(img_y + y * self.step_y)
                 # only draw up to the edge of the image
                 if draw_y > self.img_height:
                     break
-                self._grid_points_y.append(draw_y)
+                self._add_bit_row(draw_y)
 
     @property
     def img_width(self):

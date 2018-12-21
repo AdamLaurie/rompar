@@ -1,0 +1,9 @@
+<RCC>
+  <qresource prefix="toggleModeIcons/">
+    <file>toggleModeIcons/modeEditData.png</file>
+    <file>toggleModeIcons/modeEditGrid.png</file>
+  </qresource>
+  <qresource>
+    <file>mainicon_64x64.png</file>
+  </qresource>
+</RCC>

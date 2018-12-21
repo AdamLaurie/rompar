@@ -13,6 +13,10 @@
   <property name="windowTitle">
    <string>Rompar</string>
   </property>
+  <property name="windowIcon">
+   <iconset resource="resources/res.qrc">
+    <normaloff>:/mainicon_64x64.png</normaloff>:/mainicon_64x64.png</iconset>
+  </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QGridLayout" name="gridLayout">
     <property name="leftMargin">
@@ -30,10 +34,28 @@
     <property name="horizontalSpacing">
      <number>5</number>
     </property>
-    <item row="0" column="0">
+    <item row="1" column="0">
      <widget class="RomparGridView" name="graphicsView">
       <property name="alignment">
        <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+      </property>
+     </widget>
+    </item>
+    <item row="2" column="0">
+     <widget class="QPushButton" name="buttonToggleMode">
+      <property name="statusTip">
+       <string>Select between grid and data edit mode.</string>
+      </property>
+      <property name="text">
+       <string/>
+      </property>
+      <property name="icon">
+       <iconset resource="resources/res.qrc">
+        <normaloff>:/toggleModeIcons/toggleModeIcons/modeEditData.png</normaloff>
+        <normalon>:/toggleModeIcons/toggleModeIcons/modeEditGrid.png</normalon>:/toggleModeIcons/toggleModeIcons/modeEditData.png</iconset>
+      </property>
+      <property name="checkable">
+       <bool>true</bool>
       </property>
      </widget>
     </item>
@@ -112,7 +134,23 @@
     <addaction name="actionAuthors"/>
     <addaction name="actionLicense"/>
    </widget>
+   <widget class="QMenu" name="menu_Edit">
+    <property name="title">
+     <string>&amp;Edit</string>
+    </property>
+    <widget class="QMenu" name="menu_mode">
+     <property name="title">
+      <string>&amp;mode</string>
+     </property>
+     <addaction name="actionGridEditMode"/>
+     <addaction name="actionDataEditMode"/>
+     <addaction name="separator"/>
+     <addaction name="actionToggleMode"/>
+    </widget>
+    <addaction name="menu_mode"/>
+   </widget>
    <addaction name="menuFile"/>
+   <addaction name="menu_Edit"/>
    <addaction name="menuDisplay"/>
    <addaction name="menuCVOptions"/>
    <addaction name="menuData"/>
@@ -412,6 +450,38 @@
     <string>Ctrl+Shift+E</string>
    </property>
   </action>
+  <action name="actionGridEditMode">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="resources/res.qrc">
+     <normaloff>:/toggleModeIcons/toggleModeIcons/modeEditGrid.png</normaloff>:/toggleModeIcons/toggleModeIcons/modeEditGrid.png</iconset>
+   </property>
+   <property name="text">
+    <string>Grid Edit Mode</string>
+   </property>
+  </action>
+  <action name="actionDataEditMode">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="resources/res.qrc">
+     <normaloff>:/toggleModeIcons/toggleModeIcons/modeEditData.png</normaloff>:/toggleModeIcons/toggleModeIcons/modeEditData.png</iconset>
+   </property>
+   <property name="text">
+    <string>Data Edit Mode</string>
+   </property>
+  </action>
+  <action name="actionToggleMode">
+   <property name="text">
+    <string>&amp;Toggle Mode</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Space</string>
+   </property>
+  </action>
  </widget>
  <customwidgets>
   <customwidget>
@@ -420,7 +490,9 @@
    <header>rompargridview.h</header>
   </customwidget>
  </customwidgets>
- <resources/>
+ <resources>
+  <include location="resources/res.qrc"/>
+ </resources>
  <connections>
   <connection>
    <sender>actionQuit</sender>

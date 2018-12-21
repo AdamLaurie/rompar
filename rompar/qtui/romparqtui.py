@@ -20,6 +20,9 @@ sys.path.append(thisdir) # Needed to load ui
 RomparUi, RomparUiBase = uic.loadUiType(os.path.join(thisdir, 'main.ui'))
 del sys.path[-1] # Remove the now unnecessary path entry
 
+MODE_EDIT_GRID = 0
+MODE_EDIT_DATA = 1
+
 class RomparUiQt(QtWidgets.QMainWindow):
     def __init__(self, config, *, img_fn=None, grid_fn=None,
                  group_cols=0, group_rows=0):
@@ -32,17 +35,38 @@ class RomparUiQt(QtWidgets.QMainWindow):
                        if grid_fn else None
         grid_json = None
         grid_dir_path = None
+
         if self.grid_fn:
+            self.mode = MODE_EDIT_DATA
             with self.grid_fn.open('r') as gridfile:
                 print("loading", self.grid_fn)
                 grid_json = json.load(gridfile)
             grid_dir_path = self.grid_fn.parent
+        else:
+            self.mode = MODE_EDIT_GRID
+            self.ui.actionSave.setEnabled(False)
+            self.ui.actionBackupSave.setEnabled(False)
 
         self.romp = Rompar(config,
                            img_fn=img_fn, grid_json=grid_json,
                            group_cols=group_cols, group_rows=group_rows,
                            grid_dir_path=grid_dir_path)
         self.saven = 0
+
+        # QT Designer doesn't support adding buttons to the taskbar.
+        # This moves a button at the botton of the window to the taskbar,
+        self.statusBar().addPermanentWidget(self.ui.buttonToggleMode)
+
+        # Make the edit mode exclusive.
+        self.mode_selection = QtWidgets.QActionGroup(self)
+        self.mode_selection.addAction(self.ui.actionGridEditMode)
+        self.mode_selection.addAction(self.ui.actionDataEditMode)
+        self.mode_selection.exclusive = True
+        if self.mode == MODE_EDIT_GRID:
+            self.ui.actionGridEditMode.setChecked(True)
+        else:
+            self.ui.actionDataEditMode.setChecked(True)
+
 
         # Make the Image BG selection exclusive.
         self.baseimage_selection = QtWidgets.QActionGroup(self)
@@ -111,6 +135,11 @@ class RomparUiQt(QtWidgets.QMainWindow):
             with self.grid_fn.open('w') as f:
                 json.dump(self.romp.dump_grid_configuration(self.grid_fn.parent),
                           f, indent=4, sort_keys=True)
+
+            # Enable the save options once a save succeeded
+            self.ui.actionSave.setEnabled(True)
+            self.ui.actionBackupSave.setEnabled(True)
+
             self.showTempStatus('Saved Grid %s (%s)' % \
                                 (str(self.grid_fn),
                                  ("Backed Up: %s" % str(backup_fn)) if backup
@@ -173,8 +202,9 @@ class RomparUiQt(QtWidgets.QMainWindow):
 
     @QtCore.pyqtSlot()
     def on_actionSaveAs_triggered(self):
+        default_fn = self.grid_fn if self.grid_fn else self.romp.img_fn.parent
         name, filter = QtWidgets.QFileDialog.getSaveFileName(
-            self, 'Save Grid (json) File', str(self.grid_fn), "Grid (*.json)")
+            self, 'Save Grid (json) File', str(default_fn), "Grid (*.json)")
         if (name, filter) == ('', ''):
             return
         old_grid_fn = self.grid_fn
@@ -195,83 +225,104 @@ class RomparUiQt(QtWidgets.QMainWindow):
         if self.save_data_as_text(filepath):
             self.showTempStatus('Exported data to', str(filepath))
 
+    @QtCore.pyqtSlot()
+    def on_actionToggleMode_triggered(self):
+        self.ui.buttonToggleMode.setChecked(not self.ui.buttonToggleMode.isChecked())
+
+    @QtCore.pyqtSlot(bool)
+    def on_buttonToggleMode_toggled(self, checked):
+        print("Changing Edit mode")
+        if checked:
+            self.mode = MODE_EDIT_GRID
+            self.ui.actionGridEditMode.setChecked(True)
+        else:
+            self.mode = MODE_EDIT_DATA
+            self.ui.actionDataEditMode.setChecked(True)
+
+    @QtCore.pyqtSlot()
+    def on_actionGridEditMode_triggered(self):
+        self.ui.buttonToggleMode.setChecked(True)
+
+    @QtCore.pyqtSlot()
+    def on_actionDataEditMode_triggered(self):
+        self.ui.buttonToggleMode.setChecked(False)
 
     # Increment/Decrement values
     @QtCore.pyqtSlot()
     def on_actionRadiusIncrease_triggered(self):
         self.config.radius += 1
-        self.showTempStatus('Radius %02x' % self.config.radius)
+        self.showTempStatus('Radius %d' % self.config.radius)
         self.romp.read_data()
         self.display_image()
     @QtCore.pyqtSlot()
     def on_actionRadiusDecrease_triggered(self):
         self.config.radius = max(self.config.radius-1, 1)
-        self.showTempStatus('Radius %02x' % self.config.radius)
+        self.showTempStatus('Radius %d' % self.config.radius)
         self.romp.read_data()
         self.display_image()
 
     @QtCore.pyqtSlot()
     def on_actionDilateIncrease_triggered(self):
         self.config.dilate += 1
-        self.showTempStatus('Dilate %02x' % self.config.dilate)
+        self.showTempStatus('Dilate %d' % self.config.dilate)
         self.romp.read_data()
         self.display_image()
     @QtCore.pyqtSlot()
     def on_actionDilateDecrease_triggered(self):
         self.config.dilate = max(self.config.dilate - 1, 0)
-        self.showTempStatus('Dilate %02x' % self.config.dilate)
+        self.showTempStatus('Dilate %d' % self.config.dilate)
         self.romp.read_data()
         self.display_image()
 
     @QtCore.pyqtSlot()
     def on_actionErodeIncrease_triggered(self):
         self.config.erode += 1
-        self.showTempStatus('Erode %02x' % self.config.erode)
+        self.showTempStatus('Erode %f' % self.config.erode)
         self.romp.read_data()
         self.display_image()
     @QtCore.pyqtSlot()
     def on_actionErodeDecrease_triggered(self):
         self.config.font_size = max(self.config.font_size - 0.1, 0)
-        self.showTempStatus('Erode %02x' % self.config.erode)
+        self.showTempStatus('Erode %f' % self.config.erode)
         self.romp.read_data()
         self.display_image()
 
     @QtCore.pyqtSlot()
     def on_actionFontIncrease_triggered(self):
         self.config.font_size += 0.1
-        self.showTempStatus('Font Size %02x' % self.config.font_size)
+        self.showTempStatus('Font Size %f' % self.config.font_size)
         self.romp.read_data()
         self.display_image()
     @QtCore.pyqtSlot()
     def on_actionFontDecrease_triggered(self):
         self.config.font_size = max(self.config.font_size - 0.1, 0)
-        self.showTempStatus('Font Size %02x' % self.config.font_size)
+        self.showTempStatus('Font Size %f' % self.config.font_size)
         self.romp.read_data()
         self.display_image()
 
     @QtCore.pyqtSlot()
     def on_actionBitThresholdDivisorIncrease_triggered(self):
         self.config.bit_thresh_div += 1
-        self.showTempStatus('Threshold div %02x' % self.config.bit_thresh_div)
+        self.showTempStatus('Threshold div %d' % self.config.bit_thresh_div)
         self.romp.read_data()
         self.display_image()
     @QtCore.pyqtSlot()
     def on_actionBitThresholdDivisorDecrease_triggered(self):
         self.config.bit_thresh_div -= 1
-        self.showTempStatus('Threshold div %02x' % self.config.bit_thresh_div)
+        self.showTempStatus('Threshold div %d' % self.config.bit_thresh_div)
         self.romp.read_data()
         self.display_image()
 
     @QtCore.pyqtSlot()
     def on_actionPixelThresholdMinimumIncrease_triggered(self):
         self.config.pix_thresh_min = min(self.config.pix_thresh_min + 1, 0xFF)
-        self.showTempStatus('Threshold filter %02x' % self.config.pix_thresh_min)
+        self.showTempStatus('Threshold filter %d' % self.config.pix_thresh_min)
         self.romp.read_data()
         self.display_image()
     @QtCore.pyqtSlot()
     def on_actionPixelThresholdMinimumDecrease_triggered(self):
         self.config.pix_thresh_min = max(self.config.pix_thresh_min - 1, 0x01)
-        self.showTempStatus('Threshold filter %02x' % self.config.pix_thresh_min)
+        self.showTempStatus('Threshold filter %d' % self.config.pix_thresh_min)
         self.romp.read_data()
         self.display_image()
 
@@ -352,22 +403,22 @@ class RomparUiQt(QtWidgets.QMainWindow):
 
     @QtCore.pyqtSlot(QtCore.QPointF, int)
     def on_graphicsView_sceneLeftClicked(self, qimg_xy, keymods):
-        img_xy = ImgXY(qimg_xy.x(), qimg_xy.y())
-        if True: # Data Edit Mode
+        img_xy = ImgXY(int(qimg_xy.x()), int(qimg_xy.y()))
+        if self.mode == MODE_EDIT_DATA: # Data Edit Mode
             try:
                 self.romp.toggle_data(self.romp.imgxy_to_bitxy(img_xy))
                 self.display_image()
             except IndexError as e:
                 print("No bit toggled")
-        else: # Grid Edit Mode
+        elif self.mode == MODE_EDIT_GRID: # Grid Edit Mode
             do_autocenter = keymods & QtCore.Qt.ShiftModifier
             self.romp.grid_add_vertical_line(img_xy, do_autocenter)
             self.display_image()
 
     @QtCore.pyqtSlot(QtCore.QPointF, int)
     def on_graphicsView_sceneRightClicked(self, qimg_xy, keymods):
-        img_xy = ImgXY(qimg_xy.x(), qimg_xy.y())
-        if True: # Data Edit Mode
+        img_xy = ImgXY(int(qimg_xy.x()), int(qimg_xy.y()))
+        if self.mode == MODE_EDIT_DATA: # Data Edit Mode
             try:
                 bit_xy = self.romp.imgxy_to_bitxy(img_xy)
                 if bit_xy == (self.romp.Edit_x, self.romp.Edit_y):
@@ -379,7 +430,7 @@ class RomparUiQt(QtWidgets.QMainWindow):
                                     self.romp.Edit_x, self.romp.Edit_y)
             except IndexError as e:
                 self.showTempStatus("No bit group selected")
-        else: # Grid Edit Mode
+        elif self.mode == MODE_EDIT_GRID: # Grid Edit Mode
             do_autocenter = keymods & QtCore.Qt.ShiftModifier
             self.romp.grid_add_horizontal_line(img_xy, do_autocenter)
             self.display_image()
