@@ -133,15 +133,8 @@ class Rompar(object):
         return True
 
     def redraw_grid(self):
-        t = time.time()
         self.img_grid.fill(0)
         self.img_peephole.fill(0)
-        print("grid redraw image clear time:", time.time()-t)
-
-        t = time.time()
-        self._grid_points_x.sort()
-        self._grid_points_y.sort()
-        print("grid redraw line sort time:", time.time()-t)
 
         t = time.time()
         for x in self._grid_points_x:
@@ -211,7 +204,6 @@ class Rompar(object):
 
         # maximum possible value if all pixels are set
         maxval = (self.config.radius ** 2) * 255
-        print('read_data: max aperture value:', maxval)
         thresh = (maxval / self.config.bit_thresh_div)
         delta = int(self.config.radius // 2)
 
@@ -282,6 +274,16 @@ class Rompar(object):
             cv.erode(self.img_target, (3,3))
         print("process_image time", time.time()-t)
         return True
+
+    def bitx_to_imgx(self, bit_x):
+        if (0 > bit_x >= self.bit_width):
+            raise IndexError("Bit x-coodrinate (%d) out of range"%bit_x)
+        return self._grid_points_x[bit_x]
+
+    def bity_to_imgy(self, bit_y):
+        if (0 > bit_y >= self.bit_width):
+            raise IndexError("Bit y-coodrinate (%d) out of range"%bit_y)
+        return self._grid_points_y[bit_y]
 
     def bitxy_to_imgxy(self, bit_xy):
         bit_x, bit_y = bit_xy
@@ -406,10 +408,9 @@ class Rompar(object):
 
         return img
 
-    def _add_bit_column(self, img_x):
-        img_x = int(img_x)
+    def add_bit_column(self, img_x):
         if img_x in self._grid_points_x:
-            return
+            return False
 
         for i, x in enumerate(self._grid_points_x):
             if img_x < x:
@@ -421,10 +422,11 @@ class Rompar(object):
 
         self.__data = numpy.insert(self.__data, i, False, axis = 1)
         self.read_data(((i, tmp_y) for tmp_y in range(self.bit_height)))
+        return True
 
-    def _add_bit_row(self, img_y):
+    def add_bit_row(self, img_y):
         if img_y in self._grid_points_y:
-            return
+            return False
 
         for i, y in enumerate(self._grid_points_y):
             if img_y < y:
@@ -436,7 +438,46 @@ class Rompar(object):
 
         self.__data = numpy.insert(self.__data, i, False, axis = 0)
         self.read_data(((tmp_x, i) for tmp_x in range(self.bit_width)))
+        return True
 
+    def del_bit_column(self, bit_x):
+        if bit_x >= self.bit_width:
+            return False
+
+        del self._grid_points_x[bit_x]
+        self.__data = numpy.delete(self.__data, bit_x, axis = 1)
+        return True
+
+
+    def del_bit_row(self, bit_y):
+        if bit_y >= self.bit_height:
+            return False
+
+        del self._grid_points_y[bit_y]
+        self.__data = numpy.delete(self.__data, bit_y, axis = 0)
+        return True
+
+    def move_bit_column(self, bit_x, new_img_x, relative=False):
+        curr_img_x = self.bitx_to_imgx(bit_x)
+        if relative:
+            new_img_x += curr_img_x
+        if new_img_x == curr_img_x or \
+           new_img_x in self._grid_points_x:
+            return False
+        if self.del_bit_column(bit_x):
+            self.add_bit_column(new_img_x)
+            return True
+
+    def move_bit_row(self, bit_y, new_img_y, relative=False):
+        curr_img_y = self.bity_to_imgy(bit_y)
+        if relative:
+            new_img_y += curr_img_y
+        if new_img_y == curr_img_y or \
+           new_img_y in self._grid_points_y:
+            return False
+        if self.del_bit_row(bit_y):
+            self.add_bit_row(new_img_y)
+            return True
 
     def grid_add_vertical_line(self, img_xy, do_autocenter=True):
         if do_autocenter and not self.get_pixel(img_xy):
@@ -452,7 +493,7 @@ class Rompar(object):
 
         # only draw a single line if this is the first one
         if self.bit_width == 0 or self.group_cols == 1:
-            self._add_bit_column(img_x)
+            self.add_bit_column(img_x)
         else:
             # set up auto draw
             start_i = 0
@@ -468,7 +509,7 @@ class Rompar(object):
                 draw_x = int(img_x + x * self.step_x)
                 if draw_x > self.img_width:
                     break
-                self._add_bit_column(draw_x)
+                self.add_bit_column(draw_x)
 
     def grid_add_horizontal_line(self, img_xy, do_autocenter=True):
         if do_autocenter and not self.get_pixel(img_xy):
@@ -484,7 +525,7 @@ class Rompar(object):
 
         # only draw a single line if this is the first one
         if self.bit_height == 0 or self.group_rows == 1:
-            self._add_bit_row(img_y)
+            self.add_bit_row(img_y)
         else:
             # set up auto draw
             start_i = 0
@@ -501,7 +542,7 @@ class Rompar(object):
                 # only draw up to the edge of the image
                 if draw_y > self.img_height:
                     break
-                self._add_bit_row(draw_y)
+                self.add_bit_row(draw_y)
 
     @property
     def img_width(self):

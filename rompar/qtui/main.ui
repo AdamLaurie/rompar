@@ -104,6 +104,14 @@
     <addaction name="actionFindHex"/>
     <addaction name="actionSaveDataAsText"/>
     <addaction name="actionRereadData"/>
+    <addaction name="separator"/>
+    <addaction name="actionMoveColumnLeft"/>
+    <addaction name="actionMoveColumnRight"/>
+    <addaction name="actionMoveRowUp"/>
+    <addaction name="actionMoveRowDown"/>
+    <addaction name="separator"/>
+    <addaction name="actionDeleteColumn"/>
+    <addaction name="actionDeleteRow"/>
    </widget>
    <widget class="QMenu" name="menuDisplay">
     <property name="title">
@@ -494,10 +502,58 @@
   </action>
   <action name="actionRereadData">
    <property name="text">
-    <string>Re-&amp;read Data</string>
+    <string>&amp;Re-read Data</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+Shift+R</string>
+   </property>
+  </action>
+  <action name="actionMoveColumnLeft">
+   <property name="text">
+    <string>Move Column Left</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Left</string>
+   </property>
+  </action>
+  <action name="actionMoveColumnRight">
+   <property name="text">
+    <string>Move Column Right</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Right</string>
+   </property>
+  </action>
+  <action name="actionMoveRowUp">
+   <property name="text">
+    <string>Move Row Up</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Up</string>
+   </property>
+  </action>
+  <action name="actionMoveRowDown">
+   <property name="text">
+    <string>Move Row Down</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Down</string>
+   </property>
+  </action>
+  <action name="actionDeleteRow">
+   <property name="text">
+    <string>Delete Row</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Del</string>
+   </property>
+  </action>
+  <action name="actionDeleteColumn">
+   <property name="text">
+    <string>Delete Column</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Backspace</string>
    </property>
   </action>
  </widget>

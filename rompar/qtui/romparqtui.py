@@ -403,6 +403,47 @@ class RomparUiQt(QtWidgets.QMainWindow):
         if self.config.img_display_data:
             self.display_image()
 
+    # Edit Grid Buttons
+    @QtCore.pyqtSlot()
+    def on_actionDeleteColumn_triggered(self):
+        if self.romp.Edit_x >= 0:
+            if self.romp.del_bit_column(self.romp.Edit_x):
+                self.romp.Edit_x, self.romp.Edit_y = -1, -1
+                self.display_image()
+                self.showTempStatus('Deleted Column')
+
+    @QtCore.pyqtSlot()
+    def on_actionDeleteRow_triggered(self):
+        if self.romp.Edit_y >= 0:
+            if self.romp.del_bit_row(self.romp.Edit_y):
+                self.romp.Edit_x, self.romp.Edit_y = -1, -1
+                self.display_image()
+                self.showTempStatus('Deleted Row')
+
+    @QtCore.pyqtSlot()
+    def on_actionMoveColumnLeft_triggered(self):
+        if self.romp.Edit_x >= 0:
+            if self.romp.move_bit_column(self.romp.Edit_x, -1, relative=True):
+                self.display_image()
+
+    @QtCore.pyqtSlot()
+    def on_actionMoveColumnRight_triggered(self):
+        if self.romp.Edit_x >= 0:
+            if self.romp.move_bit_column(self.romp.Edit_x, 1, relative=True):
+                self.display_image()
+
+    @QtCore.pyqtSlot()
+    def on_actionMoveRowDown_triggered(self):
+        if self.romp.Edit_y >= 0:
+            if self.romp.move_bit_row(self.romp.Edit_y, 1, relative=True):
+                self.display_image()
+
+    @QtCore.pyqtSlot()
+    def on_actionMoveRowUp_triggered(self):
+        if self.romp.Edit_y >= 0:
+            if self.romp.move_bit_row(self.romp.Edit_y, -1, relative=True):
+                self.display_image()
+
 
     ############################################
     # Slots for Mouse Events from Graphicsview #
