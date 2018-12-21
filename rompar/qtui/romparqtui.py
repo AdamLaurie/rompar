@@ -426,21 +426,24 @@ class RomparUiQt(QtWidgets.QMainWindow):
     def on_graphicsView_sceneRightClicked(self, qimg_xy, keymods):
         img_xy = ImgXY(int(qimg_xy.x()), int(qimg_xy.y()))
         if self.mode == MODE_EDIT_DATA: # Data Edit Mode
-            try:
-                bit_xy = self.romp.imgxy_to_bitxy(img_xy)
-                if bit_xy == (self.romp.Edit_x, self.romp.Edit_y):
-                    self.romp.Edit_x, self.romp.Edit_y = -1, -1
-                else:
-                    self.romp.Edit_x, self.romp.Edit_y = bit_xy
-                self.display_image()
-                self.showTempStatus("Edit x,y:",
-                                    self.romp.Edit_x, self.romp.Edit_y)
-            except IndexError as e:
-                self.showTempStatus("No bit group selected")
+            self.select_bit_group(img_xy)
         elif self.mode == MODE_EDIT_GRID: # Grid Edit Mode
             do_autocenter = keymods & QtCore.Qt.ShiftModifier
             self.romp.grid_add_horizontal_line(img_xy, do_autocenter)
             self.display_image()
+
+    def select_bit_group(self, img_xy):
+        try:
+            bit_xy = self.romp.imgxy_to_bitxy(img_xy)
+            if bit_xy == (self.romp.Edit_x, self.romp.Edit_y):
+                self.romp.Edit_x, self.romp.Edit_y = -1, -1
+            else:
+                self.romp.Edit_x, self.romp.Edit_y = bit_xy
+            self.display_image()
+            self.showTempStatus("Edit x,y:",
+                                self.romp.Edit_x, self.romp.Edit_y)
+        except IndexError as e:
+            self.showTempStatus("No bit group selected")
 
 def run(app):
     import argparse
