@@ -93,6 +93,7 @@ class Rompar(object):
 
         #load img as numpy ndarray dimensions (height, width, channels)
         self.img_original = cv.imread(str(self.img_fn), cv.IMREAD_COLOR)
+        assert self.img_original is not None, "Failed to load %s" % (self.img_fn,)
         print ('Image is %dx%d; %d channels' %
                (self.img_width, self.img_height, self.img_channels))
 
