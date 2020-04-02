@@ -70,9 +70,13 @@ class Rompar(object):
                                                 len(self._grid_points_y)))
 
             if len(self._grid_points_x) > 1:
-                self.step_x = self._grid_points_x[1] - self._grid_points_x[0]
+                self.step_x = (self._grid_points_x[self.group_cols - 1] -
+                               self._grid_points_x[0]) / \
+                              (self.group_cols - 1)
             if len(self._grid_points_y) > 1:
-                self.step_y = self._grid_points_y[1] - self._grid_points_y[0]
+                self.step_y = (self._grid_points_y[self.group_rows - 1] -
+                               self._grid_points_y[0]) / \
+                              (self.group_rows - 1)
             if not self.config.default_radius:
                 if self.step_x:
                     self.config.radius = int(self.step_x / 3)
