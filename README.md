@@ -44,6 +44,13 @@ is still useful for seeing what Rompar can do:
 For more information, check the tutorial in the help menu, and the
 shortcuts on the various menu items inside of Rompar.
 
+Colors:
+  * Green: detected as bright spot ("1")
+  * Blue: detected as dark spot ("0")
+
+There are some more advanced ML aspects that were explored but never merged in. This is still an open area to explore
+
+Some ROMs can be post procssed into binaries using https://github.com/SiliconAnalysis/zorrom
 
 Enjoy!
 Adam & Rompar contributors.
