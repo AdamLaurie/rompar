@@ -15,6 +15,15 @@ ROM images. The computer vision method implemented is rather simple,
 but has proven useful in several projects. There is still a lot that
 can be added to rompar, and pull requests are welcome.
 
+## Installing
+
+Ubuntu 16.04
+
+```sudo apt-get install python3-pyqt5```
+
+```sudo pip3 install opencv-python```
+
+
 ## Usage
 
 To start a new project out of a mask rom image:
