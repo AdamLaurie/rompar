@@ -91,6 +91,7 @@ class Config(object):
 
         self.inverted = False
 
+
     def update(self, config):
         for k, v in config.items():
             if k == 'view':

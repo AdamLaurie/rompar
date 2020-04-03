@@ -25,7 +25,7 @@ MODE_EDIT_DATA = 1
 
 class RomparUiQt(QtWidgets.QMainWindow):
     def __init__(self, config, *, img_fn=None, grid_fn=None,
-                 group_cols=0, group_rows=0):
+                 group_cols=0, group_rows=0, txt=None, annotate=None):
         super(RomparUiQt, self).__init__()
         self.ui = RomparUi()
         self.ui.setupUi(self)
@@ -50,7 +50,8 @@ class RomparUiQt(QtWidgets.QMainWindow):
         self.romp = Rompar(config,
                            img_fn=img_fn, grid_json=grid_json,
                            group_cols=group_cols, group_rows=group_rows,
-                           grid_dir_path=grid_dir_path)
+                           grid_dir_path=grid_dir_path,
+                           annotate=annotate)
         self.saven = 0
 
         # QT Designer doesn't support adding buttons to the taskbar.
@@ -99,6 +100,10 @@ class RomparUiQt(QtWidgets.QMainWindow):
 
         self.ui.graphicsView.setScene(self.scene)
         self.ui.graphicsView.setAlignment(QtCore.Qt.AlignTop|QtCore.Qt.AlignLeft)
+
+        # Must be loaded before initial draw
+        if txt:
+            self.romp.load_txt_data(open(txt, "r"))
 
         # Do initial draw
         self.img = self.romp.render_image(rgb=True)
@@ -486,6 +491,26 @@ class RomparUiQt(QtWidgets.QMainWindow):
         except IndexError as e:
             self.showTempStatus("No bit group selected")
 
+def load_anotate(fn):
+    """
+    Really this is a set of (row, col): how, but that type of key doesn't map well to json
+    So instead re-process the keys
+    In: "1,2"
+    Out: (1, 2)
+
+    Ex: annotate col=1, row=2 red
+    {
+        "1,2": {"color": [255, 0, 0]}
+    }
+    """
+    j = json.load(open(fn, "r"))
+
+    ret = {}
+    for k, v in j.items():
+        c,r = k.split(",")
+        ret[(int(c), int(r))] = v
+    return ret
+
 def run(app):
     import argparse
     parser = argparse.ArgumentParser(description='Extract mask ROM image')
@@ -501,6 +526,8 @@ def run(app):
     parser.add_argument('--erode', type=str, help='Erosion')
     parser.add_argument('--debug', action='store_true', help='')
     parser.add_argument('--load', help='Load saved grid file')
+    parser.add_argument('--txt', help='Load given .txt instead of .json binary')
+    parser.add_argument('--annotate', help='Annotation .json')
     parser.add_argument('image', nargs='?', help='Input image')
     parser.add_argument('cols_per_group', nargs='?', type=int, help='')
     parser.add_argument('rows_per_group', nargs='?', type=int, help='')
@@ -518,11 +545,15 @@ def run(app):
         config.dilate = int(args.dilate, 0)
     if args.erode:
         config.erode = int(args.erode, 0)
+    annotate = None
+    if args.annotate:
+        annotate = load_anotate(args.annotate)
 
     window = RomparUiQt(config,
                         img_fn=args.image, grid_fn=args.load,
                         group_cols=args.cols_per_group,
-                        group_rows=args.rows_per_group)
+                        group_rows=args.rows_per_group,
+                        txt=args.txt, annotate=annotate)
     window.show()
 
     return app.exec_() # Start the event loop.
