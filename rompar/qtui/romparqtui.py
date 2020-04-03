@@ -25,7 +25,7 @@ MODE_EDIT_DATA = 1
 
 class RomparUiQt(QtWidgets.QMainWindow):
     def __init__(self, config, *, img_fn=None, grid_fn=None,
-                 group_cols=0, group_rows=0):
+                 group_cols=0, group_rows=0, txt=None):
         super(RomparUiQt, self).__init__()
         self.ui = RomparUi()
         self.ui.setupUi(self)
@@ -99,6 +99,10 @@ class RomparUiQt(QtWidgets.QMainWindow):
 
         self.ui.graphicsView.setScene(self.scene)
         self.ui.graphicsView.setAlignment(QtCore.Qt.AlignTop|QtCore.Qt.AlignLeft)
+
+        # Must be loaded before initial draw
+        if txt:
+            self.romp.load_txt_data(open(txt, "r"))
 
         # Do initial draw
         self.img = self.romp.render_image(rgb=True)
@@ -521,6 +525,7 @@ def run(app):
     parser.add_argument('--erode', type=str, help='Erosion')
     parser.add_argument('--debug', action='store_true', help='')
     parser.add_argument('--load', help='Load saved grid file')
+    parser.add_argument('--txt', help='Load given .txt instead of .json binary')
     parser.add_argument('--annotate', help='Annotation .json')
     parser.add_argument('image', nargs='?', help='Input image')
     parser.add_argument('cols_per_group', nargs='?', type=int, help='')
@@ -546,7 +551,8 @@ def run(app):
     window = RomparUiQt(config,
                         img_fn=args.image, grid_fn=args.load,
                         group_cols=args.cols_per_group,
-                        group_rows=args.rows_per_group)
+                        group_rows=args.rows_per_group,
+                        txt=args.txt)
     window.show()
 
     return app.exec_() # Start the event loop.

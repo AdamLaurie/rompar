@@ -17,7 +17,7 @@ ImgXY = namedtuple('ImgXY', ['x', 'y'])
 BitXY = namedtuple('BitXY', ['x', 'y'])
 
 class Rompar(object):
-    def __init__(self, config, *args, img_fn=None, grid_json=None,
+    def __init__(self, config, *, img_fn=None, grid_json=None,
                  group_cols=0, group_rows=0, grid_dir_path=None):
         self.img_fn = pathlib.Path(img_fn).expanduser().absolute() \
                       if img_fn else None
@@ -236,6 +236,21 @@ class Rompar(object):
                     f.write(' ')
                 f.write("1" if self.get_data(BitXY(bit_x, bit_y)) else "0")
             f.write('\n') # Newline afer every row
+
+    def load_txt_data(self, f):
+        def next_bit():
+            while True:
+                c = f.read(1)
+                assert c
+                if c in "01":
+                    return c
+
+        bits = 0
+        for bit_y in range(self.bit_height):
+            for bit_x in range(self.bit_width):
+                self.set_data(BitXY(bit_x, bit_y), next_bit() == "1")
+                bits += 1
+        print("Loaded %u bits" % bits)
 
     def dump_grid_configuration(self, grid_dir_path):
         config = dict(self.config.__dict__)
