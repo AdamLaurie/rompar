@@ -25,7 +25,7 @@ MODE_EDIT_DATA = 1
 
 class RomparUiQt(QtWidgets.QMainWindow):
     def __init__(self, config, *, img_fn=None, grid_fn=None,
-                 group_cols=0, group_rows=0, txt=None):
+                 group_cols=0, group_rows=0, txt=None, annotate=None):
         super(RomparUiQt, self).__init__()
         self.ui = RomparUi()
         self.ui.setupUi(self)
@@ -50,7 +50,8 @@ class RomparUiQt(QtWidgets.QMainWindow):
         self.romp = Rompar(config,
                            img_fn=img_fn, grid_json=grid_json,
                            group_cols=group_cols, group_rows=group_rows,
-                           grid_dir_path=grid_dir_path)
+                           grid_dir_path=grid_dir_path,
+                           annotate=annotate)
         self.saven = 0
 
         # QT Designer doesn't support adding buttons to the taskbar.
@@ -533,7 +534,6 @@ def run(app):
     args = parser.parse_args()
 
     config = Config()
-    print(config.annotate)
     if args.radius:
         config.default_radius = args.radius
         config.radius = args.radius
@@ -545,14 +545,15 @@ def run(app):
         config.dilate = int(args.dilate, 0)
     if args.erode:
         config.erode = int(args.erode, 0)
+    annotate = None
     if args.annotate:
-        config.annotate = load_anotate(args.annotate)
+        annotate = load_anotate(args.annotate)
 
     window = RomparUiQt(config,
                         img_fn=args.image, grid_fn=args.load,
                         group_cols=args.cols_per_group,
                         group_rows=args.rows_per_group,
-                        txt=args.txt)
+                        txt=args.txt, annotate=annotate)
     window.show()
 
     return app.exec_() # Start the event loop.
