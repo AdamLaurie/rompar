@@ -236,7 +236,8 @@ class Rompar(object):
             for bit_x in range(self.bit_width):
                 if bit_x and bit_x % self.group_cols == 0:
                     f.write(' ')
-                f.write("1" if self.get_data(BitXY(bit_x, bit_y)) else "0")
+                bit = self.get_data(BitXY(bit_x, bit_y)) ^ self.config.inverted
+                f.write("1" if bit else "0")
             f.write('\n') # Newline afer every row
 
     def load_txt_data(self, f):
