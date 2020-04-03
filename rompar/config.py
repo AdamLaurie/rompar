@@ -18,21 +18,28 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 
-import subprocess
-import sys
+import platform
 
+if platform.system() == 'Windows':
+    import ctypes
 
-def screen_wh():
-    cmd = ['xrandr']
-    cmd2 = ['grep', '*']
-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-    p2 = subprocess.Popen(cmd2, stdin=p.stdout, stdout=subprocess.PIPE)
-    p.stdout.close()
+    def screen_wh():
+        user32 = ctypes.windll.user32
+        return user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
+else:
+    import subprocess
 
-    resolution_string, _junk = p2.communicate()
-    resolution = resolution_string.split()[0]
-    width, height = resolution.split(b'x')
-    return int(width), int(height)
+    def screen_wh():
+        cmd = ['xrandr']
+        cmd2 = ['grep', '*']
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+        p2 = subprocess.Popen(cmd2, stdin=p.stdout, stdout=subprocess.PIPE)
+        p.stdout.close()
+
+        resolution_string, _junk = p2.communicate()
+        resolution = resolution_string.split()[0]
+        width, height = resolution.split(b'x')
+        return int(width), int(height)
 
 
 class View(object):
