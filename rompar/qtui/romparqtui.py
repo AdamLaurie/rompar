@@ -221,9 +221,12 @@ class RomparUiQt(QtWidgets.QMainWindow):
 
     @QtCore.pyqtSlot()
     def on_actionSaveDataAsText_triggered(self):
+        if self.grid_fn is not None:
+            defname = str(self.grid_fn.with_suffix('.txt'))
+        else:
+            defname = ''
         fname, filter = QtWidgets.QFileDialog.getSaveFileName(
-            self, 'Save Data as txt file',
-            str(self.grid_fn.with_suffix('.txt')), "Text (*.txt)")
+            self, 'Save Data as txt file', defname , "Text (*.txt)")
         if (fname, filter) == ('', ''):
             return
         filepath = pathlib.Path(fname).expanduser().absolute()
