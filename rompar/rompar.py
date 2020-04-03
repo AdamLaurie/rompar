@@ -17,7 +17,7 @@ ImgXY = namedtuple('ImgXY', ['x', 'y'])
 BitXY = namedtuple('BitXY', ['x', 'y'])
 
 class Rompar(object):
-    def __init__(self, config, *, img_fn=None, grid_json=None,
+    def __init__(self, config, *args, img_fn=None, grid_json=None,
                  group_cols=0, group_rows=0, grid_dir_path=None):
         self.img_fn = pathlib.Path(img_fn).expanduser().absolute() \
                       if img_fn else None
@@ -194,6 +194,9 @@ class Rompar(object):
 
         if self.config.img_display_data:
             self.render_data_layer(img_display)
+
+        if self.config.annotate:
+            self.render_annotate(img_display)
 
         print("render_image time:", time.time()-t)
 
@@ -412,6 +415,15 @@ class Rompar(object):
                         thickness=2)
 
         return img
+
+    def render_annotate(self, img):
+        for (col, row), annotation in self.config.annotate.items():
+            img_xy = self.bitxy_to_imgxy((col, row))
+            x, y = img_xy
+            r, g, b = annotation.get("color", (255, 80, 0))
+            thickness = annotation.get("thickness", 3)
+            radius = annotation.get("radius", self.config.radius)
+            cv.circle(img, img_xy, int(self.config.radius), (b, g, r), thickness)
 
     def add_bit_column(self, img_x):
         if img_x in self._grid_points_x:

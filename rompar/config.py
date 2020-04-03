@@ -91,6 +91,9 @@ class Config(object):
 
         self.inverted = False
 
+        # Currently loaded from CLI only and not saved to JSON
+        self.annotate = None
+
     def update(self, config):
         for k, v in config.items():
             if k == 'view':

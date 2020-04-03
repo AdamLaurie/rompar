@@ -486,6 +486,26 @@ class RomparUiQt(QtWidgets.QMainWindow):
         except IndexError as e:
             self.showTempStatus("No bit group selected")
 
+def load_anotate(fn):
+    """
+    Really this is a set of (row, col): how, but that type of key doesn't map well to json
+    So instead re-process the keys
+    In: "1,2"
+    Out: (1, 2)
+
+    Ex: annotate col=1, row=2 red
+    {
+        "1,2": {"color": [255, 0, 0]}
+    }
+    """
+    j = json.load(open(fn, "r"))
+
+    ret = {}
+    for k, v in j.items():
+        c,r = k.split(",")
+        ret[(int(c), int(r))] = v
+    return ret
+
 def run(app):
     import argparse
     parser = argparse.ArgumentParser(description='Extract mask ROM image')
@@ -501,12 +521,14 @@ def run(app):
     parser.add_argument('--erode', type=str, help='Erosion')
     parser.add_argument('--debug', action='store_true', help='')
     parser.add_argument('--load', help='Load saved grid file')
+    parser.add_argument('--annotate', help='Annotation .json')
     parser.add_argument('image', nargs='?', help='Input image')
     parser.add_argument('cols_per_group', nargs='?', type=int, help='')
     parser.add_argument('rows_per_group', nargs='?', type=int, help='')
     args = parser.parse_args()
 
     config = Config()
+    print(config.annotate)
     if args.radius:
         config.default_radius = args.radius
         config.radius = args.radius
@@ -518,6 +540,8 @@ def run(app):
         config.dilate = int(args.dilate, 0)
     if args.erode:
         config.erode = int(args.erode, 0)
+    if args.annotate:
+        config.annotate = load_anotate(args.annotate)
 
     window = RomparUiQt(config,
                         img_fn=args.image, grid_fn=args.load,
