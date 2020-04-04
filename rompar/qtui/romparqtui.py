@@ -167,6 +167,11 @@ class RomparUiQt(QtWidgets.QMainWindow):
             return False
         return True
 
+    def shift_xy(self, dx, dy):
+        self.romp.shift_xy(dx, dy)
+        self.romp.redraw_grid()
+        self.display_image()
+
     ########################################
     # Slots for QActions from the UI       #
     ########################################
@@ -530,6 +535,8 @@ def run(app):
     parser.add_argument('--debug', action='store_true', help='')
     parser.add_argument('--load', help='Load saved grid file')
     parser.add_argument('--txt', help='Load given .txt instead of .json binary')
+    parser.add_argument('--dx', type=int, help='Shift data relative to image x pixels')
+    parser.add_argument('--dy', type=int, help='Shift data relative to image y pixels')
     parser.add_argument('--annotate', help='Annotation .json')
     parser.add_argument('image', nargs='?', help='Input image')
     parser.add_argument('cols_per_group', nargs='?', type=int, help='')
@@ -557,6 +564,8 @@ def run(app):
                         group_cols=args.cols_per_group,
                         group_rows=args.rows_per_group,
                         txt=args.txt, annotate=annotate)
+    if args.dx or args.dy:
+        window.shift_xy(args.dx, args.dy)
     window.show()
 
     return app.exec_() # Start the event loop.

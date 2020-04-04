@@ -43,47 +43,7 @@ class Rompar(object):
         self._grid_points_y = []
 
         if grid_json:
-            if self.img_fn is None:
-                # TODO: If absolute paths are supported in the json
-                # file, then saving the grid file should probably not
-                # write in a relative path. For now, all img_fn paths
-                # should be relative.
-                self.img_fn = pathlib.Path(grid_json.get('img_fn'))
-                if not self.img_fn.is_absolute():
-                    # Eventually, it would be nice if this class was
-                    # unaware of the file system so it can be used
-                    # with any data source (Files, Databases, etc) in
-                    # any system configuration (desktop, web backend,
-                    # etc). But that is not the case yet, so the
-                    # current grid file's directory is necessary to
-                    # calculate the relative path of img_fn when
-                    # saving and loading a grid's configuration.
-                    self.img_fn = grid_dir_path / self.img_fn
-                    self.img_fn = self.img_fn.resolve()
-            if self.group_cols is None:
-                self.group_cols = grid_json.get('group_cols')
-                self.group_rows = grid_json.get('group_rows')
-
-            self._grid_points_x = sorted(set(grid_json['grid_points_x']))
-            self._grid_points_y = sorted(set(grid_json['grid_points_y']))
-            self.config.update(grid_json['config'])
-
-            print ('Grid points: %d x, %d y' % (len(self._grid_points_x),
-                                                len(self._grid_points_y)))
-
-            if len(self._grid_points_x) > 1:
-                self.step_x = (self._grid_points_x[self.group_cols - 1] -
-                               self._grid_points_x[0]) / \
-                              (self.group_cols - 1)
-            if len(self._grid_points_y) > 1:
-                self.step_y = (self._grid_points_y[self.group_rows - 1] -
-                               self._grid_points_y[0]) / \
-                              (self.group_rows - 1)
-            if not self.config.default_radius:
-                if self.step_x:
-                    self.config.radius = int(self.step_x / 3)
-                else:
-                    self.config.radius = int(self.step_y / 3)
+            self.load_json(grid_json, grid_dir_path)
 
         # Then need critical args
         if not self.img_fn:
@@ -111,6 +71,55 @@ class Rompar(object):
         if not (grid_json and grid_json['data'] and
                 self.__parse_grid_bit_data(grid_json['data'])):
             self.read_data()
+
+    def load_json(self, grid_json, grid_dir_path):
+        if self.img_fn is None:
+            # TODO: If absolute paths are supported in the json
+            # file, then saving the grid file should probably not
+            # write in a relative path. For now, all img_fn paths
+            # should be relative.
+            self.img_fn = pathlib.Path(grid_json.get('img_fn'))
+            if not self.img_fn.is_absolute():
+                # Eventually, it would be nice if this class was
+                # unaware of the file system so it can be used
+                # with any data source (Files, Databases, etc) in
+                # any system configuration (desktop, web backend,
+                # etc). But that is not the case yet, so the
+                # current grid file's directory is necessary to
+                # calculate the relative path of img_fn when
+                # saving and loading a grid's configuration.
+                self.img_fn = grid_dir_path / self.img_fn
+                self.img_fn = self.img_fn.resolve()
+        if self.group_cols is None:
+            self.group_cols = grid_json.get('group_cols')
+            self.group_rows = grid_json.get('group_rows')
+
+        self._grid_points_x = sorted(set(grid_json['grid_points_x']))
+        self._grid_points_y = sorted(set(grid_json['grid_points_y']))
+        self.config.update(grid_json['config'])
+
+        print ('Grid points: %d x, %d y' % (len(self._grid_points_x),
+                                            len(self._grid_points_y)))
+
+        if len(self._grid_points_x) > 1:
+            self.step_x = (self._grid_points_x[self.group_cols - 1] -
+                           self._grid_points_x[0]) / \
+                          (self.group_cols - 1)
+        if len(self._grid_points_y) > 1:
+            self.step_y = (self._grid_points_y[self.group_rows - 1] -
+                           self._grid_points_y[0]) / \
+                          (self.group_rows - 1)
+        if not self.config.default_radius:
+            if self.step_x:
+                self.config.radius = int(self.step_x / 3)
+            else:
+                self.config.radius = int(self.step_y / 3)
+
+    def shift_xy(self, dx, dy):
+        """Move data points a relative amount relative to existing image. Used to align an old project to a new image"""
+        # self.redraw()
+        self._grid_points_x = [x + dx for x in self._grid_points_x]
+        self._grid_points_y = [y + dy for y in self._grid_points_y]
 
     def __parse_grid_bit_data(self, data):
         if isinstance(data, list):
@@ -241,19 +250,23 @@ class Rompar(object):
             f.write('\n') # Newline afer every row
 
     def load_txt_data(self, f):
-        def next_bit():
+        def gen_bits():
             while True:
                 c = f.read(1)
-                assert c
+                if not c:
+                    return
                 if c in "01":
-                    return c
+                    yield c
 
-        bits = 0
+        bits = ''.join([c for c in gen_bits()])
+        assert len(bits) == self.bit_n, "Wanted %u bits (%uw x %uh) but got %u bits" % (
+                self.bit_n, self.bit_width, self.bit_height, len(bits))
+
+        biti = 0
         for bit_y in range(self.bit_height):
             for bit_x in range(self.bit_width):
-                self.set_data(BitXY(bit_x, bit_y), next_bit() == "1")
-                bits += 1
-        print("Loaded %u bits" % bits)
+                self.set_data(BitXY(bit_x, bit_y), bits[biti] == "1")
+                biti += 1
 
     def dump_grid_configuration(self, grid_dir_path):
         config = dict(self.config.__dict__)
@@ -601,6 +614,10 @@ class Rompar(object):
     @property
     def bit_height(self):
         return len(self._grid_points_y)
+
+    @property
+    def bit_n(self):
+        return len(self._grid_points_x) * len(self._grid_points_y)
 
     def iter_grid_intersections(self):
         for img_x in self._grid_points_x:
