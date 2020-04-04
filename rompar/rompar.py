@@ -241,19 +241,23 @@ class Rompar(object):
             f.write('\n') # Newline afer every row
 
     def load_txt_data(self, f):
-        def next_bit():
+        def gen_bits():
             while True:
                 c = f.read(1)
-                assert c
+                if not c:
+                    return
                 if c in "01":
-                    return c
+                    yield c
 
-        bits = 0
+        bits = ''.join([c for c in gen_bits()])
+        assert len(bits) == self.bit_n, "Wanted %u bits (%uw x %uh) but got %u bits" % (
+                self.bit_n, self.bit_width, self.bit_height, len(bits))
+
+        biti = 0
         for bit_y in range(self.bit_height):
             for bit_x in range(self.bit_width):
-                self.set_data(BitXY(bit_x, bit_y), next_bit() == "1")
-                bits += 1
-        print("Loaded %u bits" % bits)
+                self.set_data(BitXY(bit_x, bit_y), bits[biti] == "1")
+                biti += 1
 
     def dump_grid_configuration(self, grid_dir_path):
         config = dict(self.config.__dict__)
@@ -601,6 +605,10 @@ class Rompar(object):
     @property
     def bit_height(self):
         return len(self._grid_points_y)
+
+    @property
+    def bit_n(self):
+        return len(self._grid_points_x) * len(self._grid_points_y)
 
     def iter_grid_intersections(self):
         for img_x in self._grid_points_x:
