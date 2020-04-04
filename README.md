@@ -19,10 +19,21 @@ can be added to rompar, and pull requests are welcome.
 
 Ubuntu 16.04
 
-```sudo apt-get install python3-pyqt5```
+```
+sudo apt-get install python3-pyqt5
+sudo pip3 install opencv-python
+```
 
-```sudo pip3 install opencv-python```
+Windows
 
+```
+git clone https://github.com/AdamLaurie/rompar
+cd rompar
+virtualenv venv
+venv\Scripts\activate
+pip install opencv-python pyqt5
+python rompar.py file.jpg 16 8
+```
 
 ## Usage
 
