@@ -4,6 +4,7 @@ import pathlib
 import json
 
 from .. import Rompar, Config, ImgXY
+from rompar.util import json_load_exit_bad, exit_message
 
 from PyQt5 import QtCore
 from PyQt5 import QtGui
@@ -38,9 +39,8 @@ class RomparUiQt(QtWidgets.QMainWindow):
 
         if self.grid_fn:
             self.mode = MODE_EDIT_DATA
-            with self.grid_fn.open('r') as gridfile:
-                print("loading", self.grid_fn)
-                grid_json = json.load(gridfile)
+            print("loading", self.grid_fn)
+            grid_json = json_load_exit_bad(str(self.grid_fn), "--load")
             grid_dir_path = self.grid_fn.parent
         else:
             self.mode = MODE_EDIT_GRID
@@ -511,7 +511,7 @@ def load_anotate(fn):
         "1,2": {"color": [255, 0, 0]}
     }
     """
-    j = json.load(open(fn, "r"))
+    j = json_load_exit_bad(fn, "--annotate")
 
     ret = {}
     for k, v in j.items():
@@ -521,6 +521,10 @@ def load_anotate(fn):
 
 def run(app):
     import argparse
+
+    if len(sys.argv) <= 1:
+        exit_message("Arguments required, try --help", prefer_cli=None)
+
     parser = argparse.ArgumentParser(description='Extract mask ROM image')
     parser.add_argument('--radius', type=int,
                         help='Use given radius for display, '
@@ -556,6 +560,8 @@ def run(app):
     if args.erode:
         config.erode = int(args.erode, 0)
     annotate = None
+
+
     if args.annotate:
         annotate = load_anotate(args.annotate)
 
