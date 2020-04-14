@@ -101,11 +101,11 @@ class Rompar(object):
         print ('Grid points: %d x, %d y' % (len(self._grid_points_x),
                                             len(self._grid_points_y)))
 
-        if len(self._grid_points_x) > 1:
+        if len(self._grid_points_x) > 1 and self.group_cols > 1:
             self.step_x = (self._grid_points_x[self.group_cols - 1] -
                            self._grid_points_x[0]) / \
                           (self.group_cols - 1)
-        if len(self._grid_points_y) > 1:
+        if len(self._grid_points_y) > 1 and self.group_rows > 1:
             self.step_y = (self._grid_points_y[self.group_rows - 1] -
                            self._grid_points_y[0]) / \
                           (self.group_rows - 1)
