@@ -65,3 +65,25 @@ Some ROMs can be post procssed into binaries using https://github.com/SiliconAna
 
 Enjoy!
 Adam & Rompar contributors.
+
+## Release history
+
+2.1.0
+  * Better command line error handling
+  * Improved similar die import optons: --dx/--dy
+  * Bug fix: fix crash on bit groups of size 1
+  * Windows installer
+
+2.0.0
+  * Qt GUI major rewrite
+
+1.0.0
+  * JSON save files instead of pickle
+  * rompar library
+
+0.2.0
+  * Validate input better
+  * Misc code cleanup
+
+0.1.0
+  * Adam Laurie original code
