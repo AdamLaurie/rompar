@@ -38,12 +38,12 @@ class RomparUiQt(QtWidgets.QMainWindow):
         grid_dir_path = None
 
         if self.grid_fn:
-            self.mode = MODE_EDIT_DATA
+            self.set_edit_mode(MODE_EDIT_DATA)
             print("loading", self.grid_fn)
             grid_json = json_load_exit_bad(str(self.grid_fn), "--load")
             grid_dir_path = self.grid_fn.parent
         else:
-            self.mode = MODE_EDIT_GRID
+            self.set_edit_mode(MODE_EDIT_GRID)
             self.ui.actionSave.setEnabled(False)
             self.ui.actionBackupSave.setEnabled(False)
 
@@ -63,11 +63,6 @@ class RomparUiQt(QtWidgets.QMainWindow):
         self.mode_selection.addAction(self.ui.actionGridEditMode)
         self.mode_selection.addAction(self.ui.actionDataEditMode)
         self.mode_selection.exclusive = True
-        if self.mode == MODE_EDIT_GRID:
-            self.ui.actionGridEditMode.setChecked(True)
-        else:
-            self.ui.actionDataEditMode.setChecked(True)
-
 
         # Make the Image BG selection exclusive.
         self.baseimage_selection = QtWidgets.QActionGroup(self)
@@ -172,6 +167,12 @@ class RomparUiQt(QtWidgets.QMainWindow):
         self.romp.redraw_grid()
         self.display_image()
 
+    def set_edit_mode(self, mode):
+        if mode == MODE_EDIT_GRID:
+            self.ui.buttonToggleMode.setChecked(True)
+        else:
+            self.ui.buttonToggleMode.setChecked(False)
+
     ########################################
     # Slots for QActions from the UI       #
     ########################################
@@ -263,13 +264,12 @@ class RomparUiQt(QtWidgets.QMainWindow):
 
     @QtCore.pyqtSlot(bool)
     def on_buttonToggleMode_toggled(self, checked):
-        print("Changing Edit mode")
         if checked:
+            print("Changing edit mode to GRID")
             self.mode = MODE_EDIT_GRID
-            self.ui.actionGridEditMode.setChecked(True)
         else:
+            print("Changing edit mode to DATA")
             self.mode = MODE_EDIT_DATA
-            self.ui.actionDataEditMode.setChecked(True)
 
     @QtCore.pyqtSlot()
     def on_actionGridEditMode_triggered(self):
