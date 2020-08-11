@@ -169,8 +169,12 @@ class RomparUiQt(QtWidgets.QMainWindow):
 
     def set_edit_mode(self, mode):
         if mode == MODE_EDIT_GRID:
+            print("Changing edit mode to GRID")
+            self.mode = MODE_EDIT_GRID
             self.ui.buttonToggleMode.setChecked(True)
         else:
+            print("Changing edit mode to DATA")
+            self.mode = MODE_EDIT_DATA
             self.ui.buttonToggleMode.setChecked(False)
 
     ########################################
@@ -265,11 +269,9 @@ class RomparUiQt(QtWidgets.QMainWindow):
     @QtCore.pyqtSlot(bool)
     def on_buttonToggleMode_toggled(self, checked):
         if checked:
-            print("Changing edit mode to GRID")
-            self.mode = MODE_EDIT_GRID
+            self.set_edit_mode(MODE_EDIT_GRID)
         else:
-            print("Changing edit mode to DATA")
-            self.mode = MODE_EDIT_DATA
+            self.set_edit_mode(MODE_EDIT_DATA)
 
     @QtCore.pyqtSlot()
     def on_actionGridEditMode_triggered(self):
