@@ -26,6 +26,20 @@ if platform.system() == 'Windows':
     def screen_wh():
         user32 = ctypes.windll.user32
         return user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
+elif platform.system() == 'Darwin':
+    from AppKit import NSScreen, NSDeviceSize
+
+    # Borrowed from https://gist.github.com/justvanrossum/9843bf52d93cbe1c7a3f37420bea8d34
+    def screen_wh():
+        # Only gets info from the first screen
+        screen = NSScreen.screens()[0]
+        description = screen.deviceDescription()
+        pw, ph = description[NSDeviceSize].sizeValue()
+        scaleFactor = screen.backingScaleFactor()
+        pw *= scaleFactor
+        ph *= scaleFactor
+        return int(pw), int(ph)
+
 else:
     import subprocess
 

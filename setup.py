@@ -69,5 +69,6 @@ setup(
         'pyflakes>=0.8.1',
         'numpy>=1.13.3',
         'PyQt5>=5.11.3',
+        'PyObjC>=12.1 ; platform_system="Darwin"',
         ]
 )
